@@ -20,7 +20,8 @@ Pistes :
 - Construis une URL propre sans tracking : https://www.linkedin.com/jobs/view/<id>/
 """
 from dataclasses import dataclass
-
+import re 
+from bs4 import BeautifulSoup
 
 @dataclass
 class Job:
@@ -34,4 +35,22 @@ class Job:
 
 
 def parse_linkedin_alert(html: str) -> list[Job]:
-    raise NotImplementedError("À toi de jouer !")
+    soup = BeautifulSoup(html, "html.parser")
+    liens = soup.find_all("a", href=re.compile(r"/comm/jobs/view/"), class_="font-bold")
+    jobs = []
+    for a in liens:
+        job_id_match = re.search(r"/jobs/view/(\d+)", a['href'])
+        if job_id_match:
+            job_id = job_id_match.group(1)
+            title = a.get_text(strip=True)
+            p = a.find_next("p")
+            if p:
+                company_location = p.get_text(strip=True).split(" · ")
+                company = company_location[0] if len(company_location) > 0 else ""
+                location = company_location[1] if len(company_location) > 1 else ""
+                work_mode_match = re.search(r"\((.*?)\)", location)
+                location = location.split(" (")[0]  # Remove work mode from location
+                work_mode = work_mode_match.group(1) if work_mode_match else None
+                url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+                jobs.append(Job(job_id, title, company, location, work_mode, url))
+    return jobs
