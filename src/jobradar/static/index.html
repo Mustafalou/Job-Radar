@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Job Radar</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#14181F;background:#fafafa}
+  h1{color:#1E4FD8;margin-bottom:4px}
+  .bar{display:flex;gap:12px;align-items:center;margin:12px 0}
+  table{width:100%;border-collapse:collapse;background:#fff}
+  th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;font-size:14px;vertical-align:top}
+  .score{font-weight:700;width:50px}
+  .reasons{color:#888;font-size:12px}
+  select{padding:2px}
+</style>
+</head>
+<body>
+<h1>Job Radar</h1>
+<div class="bar">
+  <label>Score min <input id="min" type="number" value="50" style="width:60px"></label>
+  <label>Statut <select id="status"><option value="">tous</option><option>new</option><option>interested</option><option>applied</option><option>rejected</option></select></label>
+  <span id="count"></span>
+</div>
+<table><thead><tr><th>Score</th><th>Offre</th><th>Lieu</th><th>Statut</th></tr></thead><tbody id="rows"></tbody></table>
+<script>
+const $ = id => document.getElementById(id);
+async function load(){
+  const p = new URLSearchParams({min_score: $("min").value || 0});
+  if ($("status").value) p.set("status", $("status").value);
+  const jobs = await (await fetch("/jobs?" + p)).json();
+  $("count").textContent = jobs.length + " offres";
+  $("rows").innerHTML = "";
+  for (const j of jobs){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="score">${(j.score ?? 0).toFixed(0)}</td>
+      <td><a href="${j.url}" target="_blank"></a><br><span class="co"></span>
+        <div class="reasons"></div></td>
+      <td class="loc"></td>
+      <td><select>${["new","interested","applied","rejected"].map(s=>`<option ${s===j.status?"selected":""}>${s}</option>`).join("")}</select></td>`;
+    tr.querySelector("a").textContent = j.title;
+    tr.querySelector(".co").textContent = j.company;
+    tr.querySelector(".reasons").textContent = j.reasons || "";
+    tr.querySelector(".loc").textContent = j.location + (j.work_mode ? " (" + j.work_mode + ")" : "");
+    tr.querySelector("select").onchange = async e => {
+      const r = await fetch("/jobs/" + j.job_id, {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({status: e.target.value})});
+      if (!r.ok) alert("Erreur " + r.status + " : " + (await r.json()).detail);
+    };
+    $("rows").appendChild(tr);
+  }
+}
+$("min").onchange = load; $("status").onchange = load; load();
+</script>
+</body>
+</html>

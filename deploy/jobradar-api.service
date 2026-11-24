@@ -1,0 +1,16 @@
+# Tableau de bord FastAPI, démarré automatiquement au boot du Pi.
+# Installation : sudo cp deploy/jobradar-api.service /etc/systemd/system/
+#                sudo systemctl enable --now jobradar-api
+[Unit]
+Description=Job Radar API
+After=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/Job-Radar
+Environment=PYTHONPATH=src
+ExecStart=/home/pi/Job-Radar/.venv/bin/uvicorn jobradar.api:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

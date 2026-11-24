@@ -4,3 +4,6 @@ beautifulsoup4
 python-dotenv
 pytest
 sentence-transformers
+fastapi
+uvicorn
+httpx

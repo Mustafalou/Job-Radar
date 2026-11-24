@@ -11,7 +11,10 @@ from googleapiclient.discovery import build
 
 load_dotenv()
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.send",  # étape 5 : envoyer le résumé à soi-même
+]
 ROOT = Path(__file__).resolve().parents[2]
 CREDENTIALS = ROOT / "credentials.json"
 TOKEN = ROOT / "token.json"
@@ -54,6 +57,16 @@ def get_html_body(service, msg_id):
         return None
 
     return headers.get("From", ""), headers.get("Subject", ""), find_html(msg["payload"]) or ""
+
+
+def send_email(service, to: str, subject: str, html: str) -> None:
+    """Envoie un email HTML (utilisé pour le résumé quotidien, uniquement à moi-même)."""
+    from email.mime.text import MIMEText
+    msg = MIMEText(html, "html", "utf-8")
+    msg["To"] = to
+    msg["Subject"] = subject
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
 
 if __name__ == "__main__":
