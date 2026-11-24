@@ -19,12 +19,13 @@ Astuce doublons : "INSERT OR IGNORE" ne fait rien si le job_id existe déjà,
 et `cursor.rowcount` vaut alors 0 (1 si la ligne a été ajoutée).
 """
 from datetime import datetime
+import os
 import sqlite3
 from pathlib import Path
 
 from jobradar.parser import Job
 
-DEFAULT_DB = Path(__file__).resolve().parents[2] / "data" / "jobs.db"
+DEFAULT_DB = Path(os.getenv("JOBRADAR_DB", Path(__file__).resolve().parents[2] / "data" / "jobs.db"))
 
 
 def init_db(path: Path | str = DEFAULT_DB) -> sqlite3.Connection:

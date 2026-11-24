@@ -9,6 +9,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
+import json
+
 load_dotenv()
 
 SCOPES = [
@@ -22,6 +24,15 @@ TOKEN = ROOT / "token.json"
 
 def get_service():
     """Connexion OAuth à Gmail. Au premier lancement, une page Google s'ouvre pour autoriser."""
+    
+    token_json = os.getenv("GMAIL_TOKEN_JSON")
+    if token_json:
+        info = json.loads(token_json)
+        creds = Credentials.from_authorized_user_info(info, SCOPES)
+        if not creds.valid:
+            creds.refresh(Request())   # nouveau token d'accès, gardé en mémoire
+        return build("gmail", "v1", credentials=creds)
+    
     creds = None
     if TOKEN.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN), SCOPES)

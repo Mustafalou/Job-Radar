@@ -17,7 +17,7 @@ from jobradar.gmail_client import get_service, send_email
 load_dotenv()
 MIN_SCORE = float(os.getenv("DIGEST_MIN_SCORE", 70))
 DIGEST_TO = os.getenv("DIGEST_TO")  # ton adresse, dans .env
-
+DASHBOARD_URL = os.getenv("DASHBOARD_URL", "http://127.0.0.1:8000")
 
 def new_good_jobs(conn, since: str) -> list[dict]:
     rows = conn.execute(
@@ -36,7 +36,7 @@ def build_html(jobs: list[dict]) -> str:
             f"<li><b>{j['score']:.0f}</b> <a href='{j['url']}'>{html.escape(j['title'])}</a>"
             f" : {html.escape(j['company'])}, {html.escape(j['location'])}{mode}{reasons}</li>"
         )
-    lines.append("</ul><p>Tableau de bord : http://127.0.0.1:8000</p>")
+    lines.append(f"</ul><p>Tableau de bord : <a href='{DASHBOARD_URL}'>{DASHBOARD_URL}</a></p>")
     return "\n".join(lines)
 
 
