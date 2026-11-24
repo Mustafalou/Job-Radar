@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+.env
+token.json
+credentials.json
+data/
+profile.md
+tests/
+deploy/
+*.bat
