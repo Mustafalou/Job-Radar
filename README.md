@@ -2,7 +2,8 @@
 
 Job Radar lit chaque matin mes alertes emploi LinkedIn reçues dans Gmail, garde les nouvelles offres,
 leur donne une note de 0 à 100 selon mon profil, et m'envoie par email celles qui valent le coup.
-Un petit tableau de bord web me permet ensuite de les trier (intéressé, postulé, refusé).
+Un petit tableau de bord web me permet ensuite de les trier (intéressé, postulé, refusé)
+et de demander à un LLM une analyse détaillée d'une offre face à mon profil.
 
 Les candidatures restent envoyées à la main : Job Radar trie, il ne postule jamais à ma place.
 
@@ -22,6 +23,8 @@ flowchart LR
     D --> C
     C --> E[Email du matin<br/>offres au-dessus du seuil]
     C --> F[API FastAPI<br/>+ tableau de bord]
+    F -->|description collée| L[LLM<br/>Azure AI Foundry]
+    L -->|note + analyse| F
 ```
 
 1. **Ingestion** : lecture des emails d'alerte via l'API Gmail, extraction de chaque offre
@@ -33,7 +36,13 @@ flowchart LR
    Des règles simples ajustent ensuite la note : exclusion de certains domaines, pénalité pour les postes
    seniors ou exigeant le néerlandais, bonus pour les postes juniors.
 4. **Résumé quotidien** : un email récapitule les nouvelles offres au-dessus d'un seuil (70 par défaut).
-5. **Tableau de bord** : une API FastAPI liste les offres triées par note et permet de changer leur statut.
+5. **Tableau de bord** : une API FastAPI liste les offres (tri sur chaque colonne) et permet de changer
+   leur statut. La colonne "Modifié le" affiche la date du dernier changement, sinon la date d'ajout.
+6. **Analyse par LLM, à la demande** : les alertes LinkedIn ne contiennent pas la description des offres.
+   Sur une offre qui m'intéresse, je clique sur "Analyser" et je colle sa description. Un modèle
+   (`gpt-4.1-mini` sur Azure AI Foundry) la compare à `profile.md` et renvoie, en JSON structuré, une note
+   sur 100, un verdict, mes points forts, mes écarts et les exigences bloquantes. Le prompt lui interdit
+   d'inventer des compétences. Le résultat est gardé en base (colonne "IA").
 
 ## Stack
 
@@ -44,6 +53,7 @@ flowchart LR
 | Extraction HTML | BeautifulSoup |
 | Base de données | SQLite |
 | Similarité sémantique | sentence-transformers (`paraphrase-multilingual-MiniLM-L12-v2`) |
+| Analyse détaillée | Azure AI Foundry (`gpt-4.1-mini`), SDK `openai`, sorties structurées JSON |
 | API et tableau de bord | FastAPI, Uvicorn |
 | Tests | pytest |
 | Déploiement | Docker, GitHub Actions, Azure Container Apps, Azure Files, Microsoft Entra ID |
@@ -57,11 +67,13 @@ src/jobradar/
     db.py             base SQLite (création, ajout sans doublons, requêtes)
     ingest.py         pipeline Gmail -> parseur -> base
     scoring.py        note 0-100 : embeddings + règles métier
+    llm_scoring.py    analyse d'une offre par le LLM, à partir de sa description
     rank.py           note les offres pas encore notées, affiche le top
     daily.py          routine du matin : ingestion, scoring, email
     api.py            API FastAPI
     static/           tableau de bord HTML
-tests/                tests pytest
+tests/                tests pytest (le LLM est remplacé par un faux client)
+profile.md            mon profil de recherche, lu par le LLM
 ```
 
 ## Installation en local (Windows)
@@ -90,6 +102,10 @@ Ces deux fichiers sont des secrets : ils sont exclus de git.
 | `DASHBOARD_URL` | lien du tableau de bord dans l'email | `http://127.0.0.1:8000` |
 | `JOBRADAR_DB` | chemin de la base SQLite | `data/jobs.db` |
 | `GMAIL_TOKEN_JSON` | contenu de `token.json` (utilisé dans le cloud à la place du fichier) | aucune |
+| `AZURE_OPENAI_ENDPOINT` | adresse de la ressource Foundry (le chemin éventuel est ignoré) | aucune (obligatoire pour l'analyse) |
+| `AZURE_OPENAI_API_KEY` | clé de la ressource Foundry | aucune (obligatoire pour l'analyse) |
+| `AZURE_OPENAI_DEPLOYMENT` | nom du déploiement du modèle | `gpt-4.1-mini` |
+| `PROFILE_PATH` | chemin de `profile.md` | `profile.md` (`/data/profile.md` dans l'image) |
 
 ## Utilisation
 
@@ -117,25 +133,30 @@ flowchart LR
     A <--> F
     J <--> G[Gmail]
     U[Moi] -->|connexion Microsoft| A
+    A -->|analyse à la demande| AI[Azure AI Foundry<br/>gpt-4.1-mini]
 ```
 
 - **Image** : construite par GitHub Actions à chaque push sur `main`, publiée sur GitHub Container Registry. Une seule image sert aux deux usages.
+- **Déploiement continu** : après la construction, le pipeline se connecte à Azure sans mot de passe (OIDC, identité limitée au groupe de ressources), met à jour le tableau de bord et la routine avec l'image du commit, puis envoie `profile.md` sur le partage Azure Files.
 - **Tableau de bord** : Azure Container App, de 0 à 1 instance. Il s'éteint quand personne ne l'utilise, donc il ne coûte rien au repos.
 - **Routine du matin** : Container Apps Job planifié (`0 6 * * *` UTC), 1 vCPU et 2 Gio pour charger le modèle d'embeddings.
 - **Base** : le fichier SQLite est sur un partage Azure Files monté sur `/data` dans les deux conteneurs (option `nobrl` pour le verrouillage SQLite). Une seule instance du tableau de bord au maximum, donc jamais deux écrivains en même temps.
-- **Secrets** : le token Gmail est un secret Container Apps, injecté en variable d'environnement, jamais inclus dans l'image.
+- **Secrets** : le token Gmail et la clé Foundry sont des secrets Container Apps, injectés en variables d'environnement, jamais inclus dans l'image.
+- **Profil** : `profile.md` n'est pas dans l'image publique. Il est lu sur le partage Azure Files (`/data/profile.md`).
+- **LLM** : ressource Azure AI Foundry avec un déploiement `gpt-4.1-mini` (Global Standard). Moins d'un centime par analyse.
 - **Accès** : le tableau de bord est protégé par l'authentification intégrée de Container Apps (Microsoft Entra ID, un seul locataire).
 - **Coûts** : budget Azure avec alertes à 5 € par mois.
 
 ## Données et confidentialité
 
 - Accès Gmail en **lecture seule** pour les alertes. Le seul envoi est le résumé, à ma propre adresse.
+- Aucune lecture automatique de LinkedIn : la description d'une offre est collée à la main, ce qui respecte les CGU de LinkedIn.
+- Les descriptions et mon profil sont envoyés uniquement à mon propre déploiement Azure AI Foundry.
 - Les données restent sur ma machine ou dans mon propre compte Azure.
 - Les secrets (`.env`, `credentials.json`, `token.json`) et la base ne sont jamais versionnés.
 
 ## Prochaines étapes
 
 - Parseur pour les alertes Indeed
-- Note affinée par un LLM pour les meilleures offres
 - Génération d'un CV et d'une lettre adaptés à une offre
 - Suivi des candidatures et rappels de relance
