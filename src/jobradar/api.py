@@ -1,11 +1,12 @@
 """Étape 4 : API FastAPI. Lance : uvicorn jobradar.api:app --reload  puis http://127.0.0.1:8000
 
 - GET  /jobs                 (FAIT)   liste des offres triées par score
-- PATCH /jobs/{job_id}       (À TOI)  changer le statut d'une offre
+- PATCH /jobs/{job_id}       (FAIT)   changer le statut d'une offre (+ date du changement, UTC)
 - GET  /                     (FAIT)   le petit tableau de bord HTML
 - Doc interactive auto       http://127.0.0.1:8000/docs
 """
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -54,7 +55,11 @@ def list_jobs(
 
 @app.patch("/jobs/{job_id}")
 def update_status(job_id: str, body: StatusUpdate, conn: sqlite3.Connection = Depends(get_conn)):
-    cur = conn.execute("UPDATE jobs SET status = ? WHERE job_id = ?", (body.status, job_id))
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")  # UTC : la page convertit en heure locale
+    cur = conn.execute(
+        "UPDATE jobs SET status = ?, status_updated_at = ? WHERE job_id = ?",
+        (body.status, now, job_id),
+    )
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="Offre introuvable")
     conn.commit()

@@ -34,6 +34,7 @@ def test_update_status(client):
     r = client.patch("/jobs/1", json={"status": "interested"})
     assert r.status_code == 200
     assert r.json()["status"] == "interested"
+    assert r.json()["status_updated_at"] is not None
     assert len(client.get("/jobs?status=interested").json()) == 1
 
 
@@ -43,3 +44,8 @@ def test_update_unknown_job(client):
 
 def test_invalid_status(client):
     assert client.patch("/jobs/1", json={"status": "maybe"}).status_code == 422
+
+
+def test_new_job_has_no_update_date(client):
+    job = next(j for j in client.get("/jobs").json() if j["job_id"] == "2")
+    assert job["status_updated_at"] is None

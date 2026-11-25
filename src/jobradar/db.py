@@ -96,7 +96,7 @@ def list_jobs(conn: sqlite3.Connection) -> list[dict]:
 def _migrate(conn: sqlite3.Connection) -> None:
     """Ajoute les colonnes de l'étape 3 si la base a été créée avant (migration simple)."""
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
-    for col, typ in [("score", "REAL"), ("reasons", "TEXT")]:
+    for col, typ in [("score", "REAL"), ("reasons", "TEXT"), ("status_updated_at", "TEXT")]:
         if col not in existing:
             conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
     conn.commit()
