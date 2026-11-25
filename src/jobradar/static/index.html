@@ -17,6 +17,17 @@
   th[data-key]{cursor:pointer;user-select:none;white-space:nowrap}
   th[data-key]:hover{color:#1E4FD8}
   th .arrow{color:#1E4FD8;font-size:11px}
+  .ia{width:60px;white-space:nowrap}
+  .ia b{font-size:15px}
+  .ia button{font-size:12px;padding:2px 6px;cursor:pointer;margin-top:2px}
+  dialog{width:min(720px,92vw);border:none;border-radius:8px;padding:20px;box-shadow:0 8px 32px #0003}
+  dialog textarea{width:100%;height:220px;box-sizing:border-box;font:13px system-ui}
+  dialog h3{margin:0 0 4px}
+  .muted{color:#888;font-size:13px}
+  .res h4{margin:12px 0 4px;font-size:14px}
+  .res ul{margin:0;padding-left:20px;font-size:14px}
+  .big{font-size:28px;font-weight:700;color:#1E4FD8}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 </style>
 </head>
 <body>
@@ -27,9 +38,22 @@
   <span id="count"></span>
 </div>
 <table><thead><tr>
-  <th data-key="score">Score</th><th data-key="title">Offre</th><th data-key="location">Lieu</th>
+  <th data-key="score">Score</th><th data-key="llm_score">IA</th><th data-key="title">Offre</th><th data-key="location">Lieu</th>
   <th data-key="status">Statut</th><th data-key="status_updated_at">Modifié le</th>
 </tr></thead><tbody id="rows"></tbody></table>
+
+<dialog id="dlg">
+  <h3 id="dlgTitle"></h3>
+  <div class="muted" id="dlgCo"></div>
+  <div class="res" id="dlgRes"></div>
+  <p class="muted">Colle la description de l'offre (copiée depuis LinkedIn), puis lance l'analyse.</p>
+  <textarea id="dlgText" placeholder="Description de l'offre..."></textarea>
+  <div class="actions">
+    <span class="muted" id="dlgMsg"></span>
+    <button id="dlgClose">Fermer</button>
+    <button id="dlgGo"><b>Analyser</b></button>
+  </div>
+</dialog>
 <script>
 const $ = id => document.getElementById(id);
 const STATUSES = ["new", "interested", "applied", "rejected"];
@@ -43,6 +67,7 @@ let sort = {key: "score", dir: -1};  // -1 = décroissant, 1 = croissant
 // Valeur utilisée pour trier chaque colonne (null = toujours en bas de la liste)
 const sortValue = {
   score: j => j.score ?? null,
+  llm_score: j => j.llm_score ?? null,
   title: j => (j.title || "").toLowerCase(),
   location: j => (j.location || "").toLowerCase(),
   status: j => STATUSES.indexOf(j.status),  // ordre du suivi : new, interested, applied, rejected
@@ -76,6 +101,7 @@ function render(){
   for (const j of [...jobs].sort(compare)){
     const tr = document.createElement("tr");
     tr.innerHTML = `<td class="score">${(j.score ?? 0).toFixed(0)}</td>
+      <td class="ia">${j.llm_score != null ? `<b>${j.llm_score.toFixed(0)}</b><br>` : ""}<button>${j.llm_score != null ? "Voir" : "Analyser"}</button></td>
       <td><a href="${j.url}" target="_blank"></a><br><span class="co"></span>
         <div class="reasons"></div></td>
       <td class="loc"></td>
@@ -91,6 +117,7 @@ function render(){
       upd.classList.add("added");  // en gris italique : jamais modifiée, c'est la date d'ajout
       upd.title = "Pas encore modifiée : date d'ajout de l'offre";
     }
+    tr.querySelector(".ia button").onclick = () => openAnalysis(j);
     tr.querySelector("select").onchange = async e => {
       const r = await fetch("/jobs/" + j.job_id, {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({status: e.target.value})});
       if (!r.ok) { alert("Erreur " + r.status + " : " + (await r.json()).detail); return; }
@@ -100,6 +127,47 @@ function render(){
   }
 }
 
+// Fenêtre d'analyse IA : on colle la description, le LLM compare avec profile.md
+let current = null;
+const li = arr => arr.length ? "<ul>" + arr.map(x => "<li></li>").join("") + "</ul>" : "<p class='muted'>Aucun</p>";
+function showResult(j){
+  const res = $("dlgRes");
+  if (!j.llm_analysis){ res.innerHTML = ""; return; }
+  const a = JSON.parse(j.llm_analysis);
+  res.innerHTML = `<div class="big">${j.llm_score.toFixed(0)}/100</div><p id="verdict"></p>
+    <h4>Points forts</h4>${li(a.strengths)}<h4>Écarts</h4>${li(a.gaps)}<h4>Bloquants</h4>${li(a.blockers)}
+    <p class="muted">Analysé le ${fmtDate(j.llm_analyzed_at)}</p>`;
+  res.querySelector("#verdict").textContent = a.verdict;
+  // textContent : le texte du LLM n'est jamais interprété comme du HTML
+  const lists = res.querySelectorAll("ul");
+  [a.strengths, a.gaps, a.blockers].filter(x => x.length)
+    .forEach((arr, i) => lists[i].querySelectorAll("li").forEach((el, k) => el.textContent = arr[k]));
+}
+function openAnalysis(j){
+  current = j;
+  $("dlgTitle").textContent = j.title;
+  $("dlgCo").textContent = j.company + " · " + (j.location || "");
+  $("dlgText").value = j.description || "";
+  $("dlgMsg").textContent = "";
+  showResult(j);
+  $("dlg").showModal();
+}
+$("dlgClose").onclick = () => $("dlg").close();
+$("dlgGo").onclick = async () => {
+  $("dlgGo").disabled = true; $("dlgMsg").textContent = "Analyse en cours...";
+  try {
+    const r = await fetch("/jobs/" + current.job_id + "/analyze", {method: "POST",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({description: $("dlgText").value})});
+    const data = await r.json();
+    if (!r.ok){
+      const d = Array.isArray(data.detail) ? "description trop courte (50 caractères minimum)" : data.detail;
+      $("dlgMsg").textContent = "Erreur " + r.status + " : " + d; return;
+    }
+    current = data; showResult(data); $("dlgMsg").textContent = "";
+    load();
+  } finally { $("dlgGo").disabled = false; }
+};
+
 // Clic sur un en-tête : trie par cette colonne, un 2e clic inverse l'ordre
 for (const th of document.querySelectorAll("th[data-key]")){
   th.title = "Cliquer pour trier";
@@ -107,7 +175,7 @@ for (const th of document.querySelectorAll("th[data-key]")){
     const key = th.dataset.key;
     sort = sort.key === key
       ? {key, dir: -sort.dir}
-      : {key, dir: (key === "score" || key === "status_updated_at") ? -1 : 1};
+      : {key, dir: (key === "score" || key === "llm_score" || key === "status_updated_at") ? -1 : 1};
     render();
   };
 }

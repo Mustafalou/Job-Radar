@@ -30,12 +30,13 @@ Ouvert aux deux :
 - Python, pandas, NumPy, SQL, scikit-learn, TensorFlow, PyTorch
 - ML : séries temporelles, feature engineering (FFT, wavelets), Random Forest, SVM, LSTM, validation et métriques (précision, rappel, F1). Stage R&D ML chez Sony (2022-2023), signaux physiologiques.
 - IA générative : API LLM, agents, tool calling, sorties structurées (JSON), serveur MCP (sur mon app Muskl)
-- Dev : React Native/Expo, Supabase/PostgreSQL, Node.js, React, API REST, Git
+- Dev : FastAPI, pytest, React Native/Expo, Supabase/PostgreSQL, SQLite, Node.js, React, API REST, Git, Docker
+- Projet perso Job Radar : FastAPI, SQLite, embeddings (sentence-transformers), API Gmail, déployé sur Azure Container Apps avec GitHub Actions
 - Automatisation : n8n
 - Diplôme : MSc Computer Engineering (ECAM-ICHEC)
 
 ## En cours d'apprentissage (pas encore d'expérience professionnelle)
-FastAPI, RAG, LangGraph, évaluation de LLM, cloud (Azure, AWS), Docker/Kubernetes, outils BI (Power BI)
+RAG, LangGraph, évaluation de LLM, Azure (au-delà de Container Apps), AWS, Databricks/PySpark, Kubernetes, outils BI (Power BI)
 
 ## Expérience client
 Freelance depuis 2025 : 2 clients, sites web uniquement (WordPress/Divi). Pas encore de projet IA livré à un client.

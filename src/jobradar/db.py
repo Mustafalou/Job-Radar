@@ -94,9 +94,13 @@ def list_jobs(conn: sqlite3.Connection) -> list[dict]:
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
-    """Ajoute les colonnes de l'étape 3 si la base a été créée avant (migration simple)."""
+    """Ajoute les colonnes récentes si la base a été créée avant (migration simple).
+
+    llm_analysis contient le JSON renvoyé par le LLM (verdict, points forts, écarts, bloquants).
+    """
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
-    for col, typ in [("score", "REAL"), ("reasons", "TEXT"), ("status_updated_at", "TEXT")]:
+    for col, typ in [("score", "REAL"), ("reasons", "TEXT"), ("status_updated_at", "TEXT"),
+                     ("description", "TEXT"), ("llm_score", "REAL"), ("llm_analysis", "TEXT"), ("llm_analyzed_at", "TEXT")]:
         if col not in existing:
             conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
     conn.commit()

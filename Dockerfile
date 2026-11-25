@@ -3,7 +3,8 @@ FROM python:3.13-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src \
     HF_HOME=/app/.cache/huggingface \
-    JOBRADAR_DB=/data/jobs.db
+    JOBRADAR_DB=/data/jobs.db \
+    PROFILE_PATH=/data/profile.md
 WORKDIR /app
 
 # 1. Dépendances (PyTorch version CPU : environ 4 fois plus léger que la version GPU)
