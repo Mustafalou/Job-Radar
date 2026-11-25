@@ -46,7 +46,7 @@ flowchart LR
 | Similarité sémantique | sentence-transformers (`paraphrase-multilingual-MiniLM-L12-v2`) |
 | API et tableau de bord | FastAPI, Uvicorn |
 | Tests | pytest |
-| Déploiement | Docker, GitHub Actions, Azure Container Apps (en cours) |
+| Déploiement | Docker, GitHub Actions, Azure Container Apps, Azure Files, Microsoft Entra ID |
 
 ## Structure du projet
 
@@ -104,15 +104,28 @@ pytest                               # lancer les tests
 
 La documentation interactive de l'API est disponible sur http://127.0.0.1:8000/docs.
 
-## Déploiement sur Azure (en cours)
+## Déploiement sur Azure
 
-Objectif : faire tourner Job Radar dans le cloud pour moins de 1 € par mois.
+Job Radar tourne sur Azure (région France Central), pour un coût visé de moins de 1 € par mois.
 
-- L'image Docker est construite par GitHub Actions à chaque push sur `main` et publiée sur GitHub Container Registry.
-- Le tableau de bord tourne sur **Azure Container Apps**, de 0 à 1 instance (il s'éteint quand personne ne l'utilise).
-- La routine du matin tourne en **Container Apps Job** planifié.
-- La base SQLite est stockée sur un partage **Azure Files**, partagé entre les deux.
-- Le token Gmail est un secret Azure, jamais inclus dans l'image.
+```mermaid
+flowchart LR
+    GH[GitHub Actions] -->|image Docker| R[ghcr.io]
+    R --> J[Container Apps Job<br/>chaque matin 7 h]
+    R --> A[Container App<br/>tableau de bord, 0 à 1 instance]
+    J <--> F[(Azure Files<br/>jobs.db)]
+    A <--> F
+    J <--> G[Gmail]
+    U[Moi] -->|connexion Microsoft| A
+```
+
+- **Image** : construite par GitHub Actions à chaque push sur `main`, publiée sur GitHub Container Registry. Une seule image sert aux deux usages.
+- **Tableau de bord** : Azure Container App, de 0 à 1 instance. Il s'éteint quand personne ne l'utilise, donc il ne coûte rien au repos.
+- **Routine du matin** : Container Apps Job planifié (`0 6 * * *` UTC), 1 vCPU et 2 Gio pour charger le modèle d'embeddings.
+- **Base** : le fichier SQLite est sur un partage Azure Files monté sur `/data` dans les deux conteneurs (option `nobrl` pour le verrouillage SQLite). Une seule instance du tableau de bord au maximum, donc jamais deux écrivains en même temps.
+- **Secrets** : le token Gmail est un secret Container Apps, injecté en variable d'environnement, jamais inclus dans l'image.
+- **Accès** : le tableau de bord est protégé par l'authentification intégrée de Container Apps (Microsoft Entra ID, un seul locataire).
+- **Coûts** : budget Azure avec alertes à 5 € par mois.
 
 ## Données et confidentialité
 

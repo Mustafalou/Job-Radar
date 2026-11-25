@@ -1,0 +1,29 @@
+# Configuration de l'app Container Apps "ca-jobradar-api" (tableau de bord FastAPI)
+# Création : az containerapp create -n ca-jobradar-api -g rg-jobradar --yaml deploy/containerapp-api.yaml
+location: francecentral
+properties:
+  managedEnvironmentId: /subscriptions/215cfdc3-8e38-446f-9e5d-993a81b016ff/resourceGroups/rg-jobradar/providers/Microsoft.App/managedEnvironments/cae-jobradar
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true        # accessible depuis internet (protégé ensuite par la connexion Microsoft)
+      targetPort: 8000      # le port d'uvicorn dans le Dockerfile
+      transport: auto
+  template:
+    containers:
+      - name: api
+        image: ghcr.io/mustafalou/job-radar:latest
+        resources:
+          cpu: 0.25         # l'API n'utilise pas le modèle d'embeddings : très léger
+          memory: 0.5Gi
+        volumeMounts:
+          - volumeName: data
+            mountPath: /data   # JOBRADAR_DB=/data/jobs.db (défini dans le Dockerfile)
+    scale:
+      minReplicas: 0        # s'éteint quand personne ne visite : 0 € au repos
+      maxReplicas: 1        # jamais 2 écrivains SQLite en même temps
+    volumes:
+      - name: data
+        storageType: AzureFile
+        storageName: jobradardata
+        mountOptions: "nobrl,dir_mode=0777,file_mode=0777"   # nobrl : évite "database is locked" avec SQLite
