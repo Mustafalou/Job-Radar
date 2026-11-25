@@ -34,6 +34,7 @@ jobs:
       id-token: write                    # permet à GitHub de prouver son identité à Azure (OIDC)
       contents: read
     steps:
+      - uses: actions/checkout@v4          # pour récupérer profile.md
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -46,3 +47,9 @@ jobs:
           az extension add --name containerapp --upgrade --only-show-errors
           az containerapp update -n ca-jobradar-api -g rg-jobradar --image $IMAGE
           az containerapp job update -n caj-jobradar-daily -g rg-jobradar --image $IMAGE
+
+      - name: Envoyer profile.md sur le partage Azure Files
+        run: |
+          KEY=$(az storage account keys list -n stjobradarmay -g rg-jobradar --query "[0].value" -o tsv)
+          az storage file upload --account-name stjobradarmay --account-key "$KEY" \
+            --share-name jobradar-data --source profile.md --path profile.md --only-show-errors
