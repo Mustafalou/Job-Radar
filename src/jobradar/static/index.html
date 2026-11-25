@@ -12,6 +12,7 @@
   .score{font-weight:700;width:50px}
   .reasons{color:#888;font-size:12px}
   .upd{color:#666;font-size:12px;white-space:nowrap}
+  .upd.added{color:#aaa;font-style:italic}
   select{padding:2px}
   th[data-key]{cursor:pointer;user-select:none;white-space:nowrap}
   th[data-key]:hover{color:#1E4FD8}
@@ -33,6 +34,10 @@
 const $ = id => document.getElementById(id);
 const STATUSES = ["new", "interested", "applied", "rejected"];
 let jobs = [];
+
+// Date affichée dans « Modifié le » : dernier changement de statut, sinon date d'ajout de l'offre
+const lastDate = j => j.status_updated_at || j.first_seen || null;
+const fmtDate = d => new Date(d).toLocaleString("fr-BE", {dateStyle: "short", timeStyle: "short"});
 let sort = {key: "score", dir: -1};  // -1 = décroissant, 1 = croissant
 
 // Valeur utilisée pour trier chaque colonne (null = toujours en bas de la liste)
@@ -41,7 +46,7 @@ const sortValue = {
   title: j => (j.title || "").toLowerCase(),
   location: j => (j.location || "").toLowerCase(),
   status: j => STATUSES.indexOf(j.status),  // ordre du suivi : new, interested, applied, rejected
-  status_updated_at: j => j.status_updated_at || null,
+  status_updated_at: j => lastDate(j) ? Date.parse(lastDate(j)) : null,
 };
 
 function compare(a, b){
@@ -80,9 +85,12 @@ function render(){
     tr.querySelector(".co").textContent = j.company;
     tr.querySelector(".reasons").textContent = j.reasons || "";
     tr.querySelector(".loc").textContent = j.location + (j.work_mode ? " (" + j.work_mode + ")" : "");
-    tr.querySelector(".upd").textContent = j.status_updated_at
-      ? new Date(j.status_updated_at).toLocaleString("fr-BE", {dateStyle: "short", timeStyle: "short"})
-      : "-";
+    const upd = tr.querySelector(".upd");
+    upd.textContent = lastDate(j) ? fmtDate(lastDate(j)) : "-";
+    if (!j.status_updated_at && j.first_seen){
+      upd.classList.add("added");  // en gris italique : jamais modifiée, c'est la date d'ajout
+      upd.title = "Pas encore modifiée : date d'ajout de l'offre";
+    }
     tr.querySelector("select").onchange = async e => {
       const r = await fetch("/jobs/" + j.job_id, {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({status: e.target.value})});
       if (!r.ok) { alert("Erreur " + r.status + " : " + (await r.json()).detail); return; }

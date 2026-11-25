@@ -18,7 +18,7 @@ Table `jobs` attendue :
 Astuce doublons : "INSERT OR IGNORE" ne fait rien si le job_id existe déjà,
 et `cursor.rowcount` vaut alors 0 (1 si la ligne a été ajoutée).
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import sqlite3
 from pathlib import Path
@@ -56,7 +56,7 @@ def init_db(path: Path | str = DEFAULT_DB) -> sqlite3.Connection:
 def save_jobs(conn: sqlite3.Connection, jobs: list[Job]) -> int:
     """Insère les offres nouvelles. Renvoie le nombre d'offres réellement ajoutées."""
     added = 0
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")  # UTC, comme status_updated_at
     for job in jobs:
         cur = conn.execute(
             """

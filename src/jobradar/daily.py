@@ -6,7 +6,7 @@
 """
 import html
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
@@ -41,7 +41,7 @@ def build_html(jobs: list[dict]) -> str:
 
 
 def main():
-    since = (datetime.now() - timedelta(hours=1)).isoformat()  # offres ajoutées par ce lancement
+    since = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(timespec="seconds")  # offres ajoutées par ce lancement (UTC)
     ingest.main()
     rank.main(limit=5)
 
