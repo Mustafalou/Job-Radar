@@ -26,23 +26,23 @@ jobs:
           tags: |
             ghcr.io/mustafalou/job-radar:latest
             ghcr.io/mustafalou/job-radar:${{ github.sha }}
-    deploy:
-      needs: build                         # attend que l'image soit publiée
-      if: github.ref == 'refs/heads/main'  # seule la branche main est autorisée par Azure
-      runs-on: ubuntu-latest
-      permissions:
-        id-token: write                    # permet à GitHub de prouver son identité à Azure (OIDC)
-        contents: read
-      steps:
-        - uses: azure/login@v2
-          with:
-            client-id: ${{ secrets.AZURE_CLIENT_ID }}
-            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  deploy:
+    needs: build                         # attend que l'image soit publiée
+    if: github.ref == 'refs/heads/main'  # seule la branche main est autorisée par Azure
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write                    # permet à GitHub de prouver son identité à Azure (OIDC)
+      contents: read
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-        - name: Deployer la nouvelle image
-          run: |
-            IMAGE=ghcr.io/mustafalou/job-radar:${{ github.sha }}
-            az extension add --name containerapp --upgrade --only-show-errors
-            az containerapp update -n ca-jobradar-api -g rg-jobradar --image $IMAGE
-            az containerapp job update -n caj-jobradar-daily -g rg-jobradar --image $IMAGE
+      - name: Deployer la nouvelle image
+        run: |
+          IMAGE=ghcr.io/mustafalou/job-radar:${{ github.sha }}
+          az extension add --name containerapp --upgrade --only-show-errors
+          az containerapp update -n ca-jobradar-api -g rg-jobradar --image $IMAGE
+          az containerapp job update -n caj-jobradar-daily -g rg-jobradar --image $IMAGE
