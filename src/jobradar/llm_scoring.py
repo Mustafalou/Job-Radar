@@ -14,6 +14,7 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
 PROFILE_PATH = Path(os.getenv("PROFILE_PATH", Path(__file__).resolve().parents[2] / "profile.md"))
 MAX_DESCRIPTION = 15_000  # caractères : une offre fait rarement plus, et ça borne le coût
@@ -59,7 +60,10 @@ def get_client():
     if not endpoint or not key:
         raise LLMNotConfigured("AZURE_OPENAI_ENDPOINT et AZURE_OPENAI_API_KEY ne sont pas définis")
     from openai import OpenAI
-    return OpenAI(base_url=endpoint.rstrip("/") + "/openai/v1/", api_key=key)
+    # Garde seulement https://<ressource>.<domaine> : l'URL copiée depuis Foundry contient
+    # parfois un chemin (/api/projects/..., /openai/...) qui donnerait une erreur 404
+    u = urlparse(endpoint.strip())
+    return OpenAI(base_url=f"{u.scheme}://{u.netloc}/openai/v1/", api_key=key)
 
 
 def load_profile(path: Path = PROFILE_PATH) -> str:
