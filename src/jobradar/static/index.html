@@ -23,6 +23,8 @@
   dialog{width:min(720px,92vw);border:none;border-radius:8px;padding:20px;box-shadow:0 8px 32px #0003}
   dialog textarea{width:100%;height:220px;box-sizing:border-box;font:13px system-ui}
   dialog h3{margin:0 0 4px}
+  dialog h3 a{color:#1E4FD8;text-decoration:none}
+  dialog h3 a:hover{text-decoration:underline}
   .muted{color:#888;font-size:13px}
   .res h4{margin:12px 0 4px;font-size:14px}
   .res ul{margin:0;padding-left:20px;font-size:14px}
@@ -43,7 +45,7 @@
 </tr></thead><tbody id="rows"></tbody></table>
 
 <dialog id="dlg">
-  <h3 id="dlgTitle"></h3>
+  <h3><a id="dlgTitle" target="_blank" rel="noopener" title="Ouvrir l'offre dans un nouvel onglet"></a></h3>
   <div class="muted" id="dlgCo"></div>
   <div class="res" id="dlgRes"></div>
   <p class="muted">Colle la description de l'offre (copiée depuis LinkedIn), puis lance l'analyse.</p>
@@ -145,7 +147,8 @@ function showResult(j){
 }
 function openAnalysis(j){
   current = j;
-  $("dlgTitle").textContent = j.title;
+  $("dlgTitle").textContent = j.title + " ↗";
+  $("dlgTitle").href = j.url;
   $("dlgCo").textContent = j.company + " · " + (j.location || "");
   $("dlgText").value = j.description || "";
   $("dlgMsg").textContent = "";
