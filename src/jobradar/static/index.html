@@ -91,6 +91,8 @@
   <div class="actions">
     <span class="muted" id="dlgMsg"></span>
     <button id="dlgClose">Fermer</button>
+    <a id="dlgSeeCv" target="_blank" rel="noopener" style="display:none;font-size:14px;color:#1E4FD8">Voir le CV</a>
+    <button id="dlgCv" title="CV construit à partir de ta base de faits vrais, rien n'est inventé">Générer CV</button>
     <button id="dlgGo"><b>Analyser</b></button>
   </div>
 </dialog>
@@ -193,9 +195,30 @@ function openAnalysis(j){
   $("dlgCo").textContent = j.company + " · " + (j.location || "");
   $("dlgText").value = j.description || "";
   $("dlgMsg").textContent = "";
+  showCvLink(j);
   showResult(j);
   $("dlg").showModal();
 }
+function showCvLink(j){
+  $("dlgSeeCv").style.display = j.cv_plan ? "" : "none";
+  $("dlgSeeCv").href = "/jobs/" + j.job_id + "/cv";
+}
+$("dlgCv").onclick = async () => {
+  const w = window.open("", "_blank");  // ouvert tout de suite, sinon le navigateur bloque la fenêtre
+  $("dlgCv").disabled = true; $("dlgMsg").textContent = "Génération du CV...";
+  try {
+    const r = await fetch("/jobs/" + current.job_id + "/cv", {method: "POST",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({description: $("dlgText").value || null})});
+    const data = await r.json();
+    if (!r.ok){
+      if (w) w.close();
+      const d = Array.isArray(data.detail) ? "requête invalide" : data.detail;
+      $("dlgMsg").textContent = "Erreur " + r.status + " : " + d; return;
+    }
+    current = data; showCvLink(data); $("dlgMsg").textContent = "";
+    if (w) w.location = "/jobs/" + data.job_id + "/cv"; else window.open("/jobs/" + data.job_id + "/cv", "_blank");
+  } finally { $("dlgCv").disabled = false; }
+};
 $("dlgClose").onclick = () => $("dlg").close();
 $("dlgGo").onclick = async () => {
   $("dlgGo").disabled = true; $("dlgMsg").textContent = "Analyse en cours...";

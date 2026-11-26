@@ -12,3 +12,4 @@ token.json
 # Données locales
 data/*.db
 data/raw/
+

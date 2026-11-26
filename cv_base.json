@@ -1,0 +1,298 @@
+{
+  "_doc": "Base de faits VRAIS pour les CV. Le LLM choisit et ordonne ces éléments, il ne peut rien ajouter. Versionné dans git et envoyé sur Azure Files par le pipeline. Le téléphone n'est pas ici : il vient de la variable d'environnement CV_PHONE.",
+  "contact": {
+    "name": "Mustafa Ali Yılmaz",
+    "location": {
+      "fr": "Bruxelles, Belgique",
+      "en": "Brussels, Belgium"
+    },
+    "email": "myilmaz@mynextgen.be",
+    "website": "mynextgen.be"
+  },
+  "experiences": [
+    {
+      "id": "freelance",
+      "always": true,
+      "role": {
+        "fr": "Développeur et ingénieur IA freelance",
+        "en": "Freelance Engineer"
+      },
+      "org": {
+        "fr": "MYNextGen, Bruxelles",
+        "en": "MYNextGen, Brussels"
+      },
+      "dates": {
+        "fr": "2025 – aujourd'hui",
+        "en": "2025 – Present"
+      },
+      "bullets": [
+        {
+          "id": "fl-muskl",
+          "fr": "Muskl, application mobile de suivi d'entraînement construite seul de A à Z : React Native, Expo et JavaScript côté client, Supabase (PostgreSQL, authentification) côté back-end, bêta fermée sur Android.",
+          "en": "Own product development: Muskl, a mobile workout tracking app built solo (React Native, Expo, Supabase/PostgreSQL), in closed beta on Android."
+        },
+        {
+          "id": "fl-mcp",
+          "fr": "IA dans Muskl : serveur Model Context Protocol (MCP) qui expose les données de l'application sous forme d'outils (historique des séances, records personnels, résumé d'entraînement, poids). Un agent LLM les appelle pour répondre aux questions, analyser les séances et proposer des plans d'entraînement.",
+          "en": "AI on Muskl: Model Context Protocol (MCP) server exposing the app's data as tools (workout history, personal records, training summary, body weight), used by an LLM agent to answer questions, analyse past workouts and suggest training plans."
+        },
+        {
+          "id": "fl-agent",
+          "fr": "Conception des outils de l'agent : tool calling, schémas d'entrée et de sortie stricts, sorties structurées (JSON), gestion des erreurs et accès en lecture seule par conception.",
+          "en": "Agent design: tool calling, strict input and output schemas, structured (JSON) outputs, error handling and limited permissions (read-only access by design)."
+        },
+        {
+          "id": "fl-web",
+          "fr": "Projets clients pour deux commerces belges : sites web professionnels avec WordPress et Divi 5, de l'analyse du besoin à la mise en ligne et à la maintenance.",
+          "en": "Client projects for two small Belgian businesses: professional websites with WordPress and Divi 5, from needs analysis to deployment and maintenance."
+        },
+        {
+          "id": "fl-clients",
+          "fr": "Travail en direct avec des clients non techniques : comprendre le besoin, proposer une structure, itérer sur les retours, livrer et assurer le suivi.",
+          "en": "Work directly with non-technical clients: understand the need, propose a structure, iterate on feedback, deliver and follow up."
+        },
+        {
+          "id": "fl-git",
+          "fr": "Git et GitHub pour la gestion de versions sur l'ensemble des projets.",
+          "en": "Git and GitHub for version control across projects."
+        }
+      ]
+    },
+    {
+      "id": "jobradar",
+      "role": {
+        "fr": "Projet personnel, Job Radar",
+        "en": "Personal Project, Job Radar"
+      },
+      "org": {
+        "fr": "Python, FastAPI, Azure",
+        "en": "Python, FastAPI, Azure"
+      },
+      "dates": {
+        "fr": "2026",
+        "en": "2026"
+      },
+      "bullets": [
+        {
+          "id": "jr-pipeline",
+          "fr": "Pipeline quotidien qui lit des alertes d'offres d'emploi (API Gmail, OAuth), les analyse (BeautifulSoup), les stocke dans SQLite sans doublons et leur donne une note par rapport à un profil.",
+          "en": "Daily pipeline that reads job alert emails (Gmail API, OAuth), parses them (BeautifulSoup), stores offers in SQLite without duplicates and scores them against a target profile."
+        },
+        {
+          "id": "jr-embeddings",
+          "fr": "Note par embeddings multilingues (similarité cosinus, FR/EN/ES) et règles métier, évaluée et ajustée à la main sur des données réelles.",
+          "en": "Scoring with multilingual sentence embeddings (cosine similarity, FR/EN/ES) plus business rules, evaluated and tuned by hand on real data."
+        },
+        {
+          "id": "jr-llm",
+          "fr": "Analyse détaillée des offres par LLM (Azure AI Foundry, gpt-4.1-mini) : sortie JSON structurée, règles de prompt contre les compétences inventées, tests avec un faux client.",
+          "en": "Detailed offer analysis with an LLM (Azure AI Foundry, gpt-4.1-mini): structured JSON output, prompt rules against invented skills, tests with a fake client."
+        },
+        {
+          "id": "jr-api",
+          "fr": "API REST et tableau de bord avec FastAPI (validation Pydantic, injection de dépendances), tests unitaires avec pytest.",
+          "en": "REST API and dashboard with FastAPI (Pydantic validation, dependency injection), unit tests with pytest."
+        },
+        {
+          "id": "jr-azure",
+          "fr": "Déploiement sur Azure : Container Apps (job planifié et tableau de bord qui s'éteint au repos), Azure Files, connexion Microsoft Entra ID, CI/CD GitHub Actions avec OIDC, coût inférieur à 1 € par mois.",
+          "en": "Deployed on Azure: Container Apps (scheduled job and scale-to-zero dashboard), Azure Files, Microsoft Entra ID sign-in, CI/CD with GitHub Actions and OIDC, running cost under 1 € per month."
+        }
+      ]
+    },
+    {
+      "id": "sony",
+      "always": true,
+      "role": {
+        "fr": "Stagiaire R&D, Machine Learning",
+        "en": "R&D Intern, Machine Learning"
+      },
+      "org": {
+        "fr": "Sony",
+        "en": "Sony"
+      },
+      "dates": {
+        "fr": "2022 – 2023",
+        "en": "2022 – 2023"
+      },
+      "bullets": [
+        {
+          "id": "sony-models",
+          "fr": "Conception et entraînement de modèles de machine learning sur des signaux physiologiques (comme la respiration) pour détecter des états de stress (Python).",
+          "en": "Designed and trained machine learning models on physiological time-series signals (such as respiration) to detect stress states (Python)."
+        },
+        {
+          "id": "sony-pipeline",
+          "fr": "Pipelines de données : contrôle qualité, nettoyage, feature engineering (FFT, ondelettes), validation et comparaison de modèles avec des métriques adaptées.",
+          "en": "Built data pipelines: data exploration and quality checks, cleaning, feature engineering (FFT, wavelets), validation and model comparison with appropriate metrics."
+        },
+        {
+          "id": "sony-docs",
+          "fr": "Documentation et rapports techniques pour une équipe R&D internationale.",
+          "en": "Documented each step and wrote technical R&D reports for an international team."
+        }
+      ]
+    },
+    {
+      "id": "thesis",
+      "role": {
+        "fr": "Mémoire de fin d'études, Technivor",
+        "en": "Master's Thesis, Technivor"
+      },
+      "org": {
+        "fr": "ECAM-ICHEC",
+        "en": "ECAM-ICHEC"
+      },
+      "dates": {
+        "fr": "2024",
+        "en": "2024"
+      },
+      "bullets": [
+        {
+          "id": "thesis-iot",
+          "fr": "Plateforme IoT temps réel : ingestion de données capteurs (MQTT), traitement et stockage avec un back-end Node.js, tableau de bord React en direct.",
+          "en": "Real-time IoT platform: sensor data ingestion (MQTT), processing and storage with a Node.js back end, live React dashboard."
+        }
+      ]
+    },
+    {
+      "id": "break",
+      "always": true,
+      "role": {
+        "fr": "Pause carrière",
+        "en": "Career Break"
+      },
+      "org": {
+        "fr": "Voyages, apprentissage de l'espagnol, préparation de l'activité freelance",
+        "en": "Travel, learning Spanish, preparing the freelance activity"
+      },
+      "dates": {
+        "fr": "2024 – 2025",
+        "en": "2024 – 2025"
+      },
+      "bullets": []
+    }
+  ],
+  "skills": [
+    {
+      "id": "genai",
+      "label": {
+        "fr": "IA générative et agents",
+        "en": "Generative AI & agents"
+      },
+      "items": [
+        "LLM APIs",
+        "agents",
+        "tool calling",
+        "structured outputs (JSON)",
+        "prompt design",
+        "Model Context Protocol (MCP)",
+        "Azure AI Foundry"
+      ]
+    },
+    {
+      "id": "ml",
+      "label": {
+        "fr": "Data et machine learning",
+        "en": "Data & machine learning"
+      },
+      "items": [
+        "Python",
+        "pandas",
+        "NumPy",
+        "SQL",
+        "scikit-learn",
+        "TensorFlow",
+        "PyTorch",
+        "sentence embeddings",
+        "time series",
+        "feature engineering",
+        "model evaluation"
+      ]
+    },
+    {
+      "id": "dev",
+      "label": {
+        "fr": "Développement et intégration",
+        "en": "Software & integration"
+      },
+      "items": [
+        "FastAPI",
+        "REST APIs",
+        "pytest",
+        "Flask",
+        "Node.js",
+        "React",
+        "React Native",
+        "Expo",
+        "JavaScript",
+        "MQTT",
+        "WordPress",
+        "Divi 5"
+      ]
+    },
+    {
+      "id": "data",
+      "label": {
+        "fr": "Bases de données",
+        "en": "Databases"
+      },
+      "items": [
+        "PostgreSQL (Supabase)",
+        "SQLite",
+        "MariaDB"
+      ]
+    },
+    {
+      "id": "cloud",
+      "label": {
+        "fr": "Cloud et outils",
+        "en": "Cloud & tools"
+      },
+      "items": [
+        "Azure Container Apps",
+        "Azure Files",
+        "Microsoft Entra ID",
+        "Docker",
+        "GitHub Actions",
+        "Git",
+        "Linux",
+        "nginx"
+      ]
+    },
+    {
+      "id": "other",
+      "label": {
+        "fr": "Autres langages",
+        "en": "Other languages"
+      },
+      "items": [
+        "Java",
+        "R"
+      ]
+    }
+  ],
+  "learning": {
+    "fr": "RAG (bases vectorielles), LangGraph, Databricks, PySpark · préparation de la certification Microsoft AI-103",
+    "en": "RAG (vector databases), LangGraph, Databricks, PySpark · preparing Microsoft AI-103 certification"
+  },
+  "education": {
+    "degree": {
+      "fr": "Master en ingénierie informatique",
+      "en": "Master of Science in Computer Engineering"
+    },
+    "school": {
+      "fr": "ECAM-ICHEC, Bruxelles",
+      "en": "ECAM-ICHEC, Brussels"
+    },
+    "year": "2024",
+    "detail": {
+      "fr": "Spécialisation : machine learning, data engineering, architecture logicielle.",
+      "en": "Focus: machine learning, data engineering, software architecture."
+    }
+  },
+  "languages": {
+    "fr": "Français et turc : langues maternelles · Anglais : courant (professionnel) · Espagnol : conversationnel · Néerlandais : notions",
+    "en": "French and Turkish: native · English: fluent (professional) · Spanish: conversational · Dutch: basic, motivated to improve"
+  }
+}

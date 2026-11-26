@@ -100,7 +100,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     """
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
     for col, typ in [("score", "REAL"), ("reasons", "TEXT"), ("status_updated_at", "TEXT"),
-                     ("description", "TEXT"), ("llm_score", "REAL"), ("llm_analysis", "TEXT"), ("llm_analyzed_at", "TEXT")]:
+                     ("description", "TEXT"), ("llm_score", "REAL"), ("llm_analysis", "TEXT"), ("llm_analyzed_at", "TEXT"),
+                     ("cv_plan", "TEXT"), ("cv_generated_at", "TEXT")]:
         if col not in existing:
             conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
     conn.commit()

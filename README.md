@@ -43,6 +43,12 @@ flowchart LR
    (`gpt-4.1-mini` sur Azure AI Foundry) la compare à `profile.md` et renvoie, en JSON structuré, une note
    sur 100, un verdict, mes points forts, mes écarts et les exigences bloquantes. Le prompt lui interdit
    d'inventer des compétences. Le résultat est gardé en base (colonne "IA").
+7. **CV adapté à une offre** : le bouton "Générer CV" construit un CV d'une page à partir de `cv_base.json`,
+   une base de faits vrais (expériences, puces, compétences, en FR et EN). Le LLM ne rédige que le titre et
+   le court profil. Pour le reste, il renvoie seulement des identifiants de la base, et le code supprime tout
+   identifiant inconnu : il peut choisir et ordonner, pas inventer. Les compétences demandées par l'offre mais
+   absentes de la base sont listées à part, sans être ajoutées. La page s'ouvre, se modifie au clic et
+   s'imprime en PDF. Les coordonnées ne sont jamais envoyées au LLM.
 
 ## Stack
 
@@ -68,12 +74,14 @@ src/jobradar/
     ingest.py         pipeline Gmail -> parseur -> base
     scoring.py        note 0-100 : embeddings + règles métier
     llm_scoring.py    analyse d'une offre par le LLM, à partir de sa description
+    cv.py             CV adapté : choix dans cv_base.json par le LLM, contrôle, page imprimable
     rank.py           note les offres pas encore notées, affiche le top
     daily.py          routine du matin : ingestion, scoring, email
     api.py            API FastAPI
     static/           tableau de bord HTML
 tests/                tests pytest (le LLM est remplacé par un faux client)
 profile.md            mon profil de recherche, lu par le LLM
+cv_base.json          base de faits du CV (hors image, envoyée sur Azure Files par le pipeline)
 ```
 
 ## Installation en local (Windows)
@@ -105,6 +113,8 @@ Ces deux fichiers sont des secrets : ils sont exclus de git.
 | `AZURE_OPENAI_ENDPOINT` | adresse de la ressource Foundry (le chemin éventuel est ignoré) | aucune (obligatoire pour l'analyse) |
 | `AZURE_OPENAI_API_KEY` | clé de la ressource Foundry | aucune (obligatoire pour l'analyse) |
 | `AZURE_OPENAI_DEPLOYMENT` | nom du déploiement du modèle | `gpt-4.1-mini` |
+| `CV_PHONE` | téléphone affiché sur le CV (secret Container Apps) | aucun |
+| `CV_BASE_PATH` | chemin de `cv_base.json` | `cv_base.json` (`/data/cv_base.json` dans l'image) |
 | `PROFILE_PATH` | chemin de `profile.md` | `profile.md` (`/data/profile.md` dans l'image) |
 
 ## Utilisation
@@ -137,12 +147,12 @@ flowchart LR
 ```
 
 - **Image** : construite par GitHub Actions à chaque push sur `main`, publiée sur GitHub Container Registry. Une seule image sert aux deux usages.
-- **Déploiement continu** : après la construction, le pipeline se connecte à Azure sans mot de passe (OIDC, identité limitée au groupe de ressources), met à jour le tableau de bord et la routine avec l'image du commit, puis envoie `profile.md` sur le partage Azure Files.
+- **Déploiement continu** : après la construction, le pipeline se connecte à Azure sans mot de passe (OIDC, identité limitée au groupe de ressources), met à jour le tableau de bord et la routine avec l'image du commit, puis envoie `profile.md` et `cv_base.json` sur le partage Azure Files.
 - **Tableau de bord** : Azure Container App, de 0 à 1 instance. Il s'éteint quand personne ne l'utilise, donc il ne coûte rien au repos.
 - **Routine du matin** : Container Apps Job planifié (`0 6 * * *` UTC), 1 vCPU et 2 Gio pour charger le modèle d'embeddings.
 - **Base** : le fichier SQLite est sur un partage Azure Files monté sur `/data` dans les deux conteneurs (option `nobrl` pour le verrouillage SQLite). Une seule instance du tableau de bord au maximum, donc jamais deux écrivains en même temps.
 - **Secrets** : le token Gmail et la clé Foundry sont des secrets Container Apps, injectés en variables d'environnement, jamais inclus dans l'image.
-- **Profil** : `profile.md` n'est pas dans l'image publique. Il est lu sur le partage Azure Files (`/data/profile.md`).
+- **Profil et base du CV** : `profile.md` et `cv_base.json` ne sont pas dans l'image publique. Ils sont lus sur le partage Azure Files (`/data/`). Les deux sont envoyés automatiquement par le pipeline à chaque push. Le téléphone affiché sur le CV n'est pas dans git : il vient du secret `CV_PHONE`.
 - **LLM** : ressource Azure AI Foundry avec un déploiement `gpt-4.1-mini` (Global Standard). Moins d'un centime par analyse.
 - **Accès** : le tableau de bord est protégé par l'authentification intégrée de Container Apps (Microsoft Entra ID, un seul locataire).
 - **Coûts** : budget Azure avec alertes à 5 € par mois.
@@ -158,5 +168,5 @@ flowchart LR
 ## Prochaines étapes
 
 - Parseur pour les alertes Indeed
-- Génération d'un CV et d'une lettre adaptés à une offre
+- Lettre de motivation adaptée (le début restera écrit à la main)
 - Suivi des candidatures et rappels de relance

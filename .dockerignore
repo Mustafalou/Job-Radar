@@ -9,4 +9,4 @@ data/
 profile.md
 tests/
 deploy/
-*.bat
+*.batcv_base.json

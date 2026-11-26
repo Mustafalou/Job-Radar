@@ -4,7 +4,8 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src \
     HF_HOME=/app/.cache/huggingface \
     JOBRADAR_DB=/data/jobs.db \
-    PROFILE_PATH=/data/profile.md
+    PROFILE_PATH=/data/profile.md \
+    CV_BASE_PATH=/data/cv_base.json
 WORKDIR /app
 
 # 1. Dépendances (PyTorch version CPU : environ 4 fois plus léger que la version GPU)

@@ -48,8 +48,10 @@ jobs:
           az containerapp update -n ca-jobradar-api -g rg-jobradar --image $IMAGE
           az containerapp job update -n caj-jobradar-daily -g rg-jobradar --image $IMAGE
 
-      - name: Envoyer profile.md sur le partage Azure Files
+      - name: Envoyer profile.md et cv_base.json sur le partage Azure Files
         run: |
           KEY=$(az storage account keys list -n stjobradarmay -g rg-jobradar --query "[0].value" -o tsv)
-          az storage file upload --account-name stjobradarmay --account-key "$KEY" \
-            --share-name jobradar-data --source profile.md --path profile.md --only-show-errors
+          for f in profile.md cv_base.json; do
+            az storage file upload --account-name stjobradarmay --account-key "$KEY" \
+              --share-name jobradar-data --source "$f" --path "$f" --only-show-errors
+          done
