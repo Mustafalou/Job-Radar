@@ -6,7 +6,8 @@
 <style>
   body{font-family:system-ui,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#14181F;background:#fafafa}
   h1{color:#1E4FD8;margin-bottom:4px}
-  .bar{display:flex;gap:12px;align-items:center;margin:12px 0}
+  .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:12px 0}
+  .mobile-only{display:none}
   table{width:100%;border-collapse:collapse;background:#fff}
   th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;font-size:14px;vertical-align:top}
   .score{font-weight:700;width:50px}
@@ -29,7 +30,38 @@
   .res h4{margin:12px 0 4px;font-size:14px}
   .res ul{margin:0;padding-left:20px;font-size:14px}
   .big{font-size:28px;font-weight:700;color:#1E4FD8}
-  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  .actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
+  .help{margin-top:6px}
+  .help a{color:#1E4FD8}
+
+  /* ---- Téléphone : chaque offre devient une carte ---- */
+  @media (max-width: 700px){
+    body{margin:12px auto;padding:0 12px}
+    h1{font-size:26px;margin:0}
+    .mobile-only{display:inline-flex;gap:6px;align-items:center}
+    input,select,textarea,button{font-size:16px}   /* 16px : évite le zoom auto d'iOS */
+    .bar label{display:flex;gap:6px;align-items:center}
+    table,tbody{display:block;background:none}
+    thead{display:none}                            /* le tri passe par le menu "Trier par" */
+    tr{display:grid;grid-template-columns:44px 1fr auto;
+       grid-template-areas:"score offer ia" ". loc loc" ". st upd";
+       background:#fff;border-radius:10px;margin-bottom:10px;padding:10px 8px;box-shadow:0 1px 3px #0001}
+    td{border:none;padding:2px 4px;font-size:15px}
+    td.score{grid-area:score;font-size:20px;width:auto}
+    td.offer{grid-area:offer}
+    td.offer a{font-weight:600}
+    td.ia{grid-area:ia;text-align:right;width:auto}
+    td.ia button{font-size:14px;padding:6px 10px}
+    td.loc{grid-area:loc;color:#555;font-size:14px}
+    td.st{grid-area:st}
+    td.st select{padding:6px}
+    td.upd{grid-area:upd;align-self:center;text-align:right}
+    dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0;padding:16px;box-sizing:border-box}
+    dialog textarea{height:35vh}
+    .actions{position:sticky;bottom:-16px;background:#fff;padding:10px 0;flex-wrap:wrap}
+    .actions button{padding:10px 16px}
+    #dlgMsg{flex-basis:100%;order:-1}
+  }
 </style>
 </head>
 <body>
@@ -37,6 +69,10 @@
 <div class="bar">
   <label>Score min <input id="min" type="number" value="50" style="width:60px"></label>
   <label>Statut <select id="status"><option value="">tous</option><option>new</option><option>interested</option><option>applied</option><option>rejected</option></select></label>
+  <label class="mobile-only">Trier par <select id="sortSel">
+    <option value="score">Score</option><option value="llm_score">Note IA</option>
+    <option value="status_updated_at">Modifié le</option><option value="title">Offre</option>
+    <option value="location">Lieu</option><option value="status">Statut</option></select></label>
   <span id="count"></span>
 </div>
 <table><thead><tr>
@@ -47,6 +83,8 @@
 <dialog id="dlg">
   <h3><a id="dlgTitle" target="_blank" rel="noopener" title="Ouvrir l'offre dans un nouvel onglet"></a></h3>
   <div class="muted" id="dlgCo"></div>
+  <div class="muted help">Sur téléphone : <a id="dlgText2" target="_blank" rel="noopener">version texte de l'offre ↗</a>
+    (s'ouvre dans le navigateur et pas dans l'app LinkedIn, le texte se copie)</div>
   <div class="res" id="dlgRes"></div>
   <p class="muted">Colle la description de l'offre (copiée depuis LinkedIn), puis lance l'analyse.</p>
   <textarea id="dlgText" placeholder="Description de l'offre..."></textarea>
@@ -94,6 +132,7 @@ async function load(){
 
 function render(){
   $("count").textContent = jobs.length + " offres";
+  $("sortSel").value = sort.key;
   for (const th of document.querySelectorAll("th[data-key]")){
     const label = th.dataset.label ??= th.textContent;
     th.innerHTML = label + (th.dataset.key === sort.key
@@ -104,10 +143,10 @@ function render(){
     const tr = document.createElement("tr");
     tr.innerHTML = `<td class="score">${(j.score ?? 0).toFixed(0)}</td>
       <td class="ia">${j.llm_score != null ? `<b>${j.llm_score.toFixed(0)}</b><br>` : ""}<button>${j.llm_score != null ? "Voir" : "Analyser"}</button></td>
-      <td><a href="${j.url}" target="_blank"></a><br><span class="co"></span>
+      <td class="offer"><a href="${j.url}" target="_blank"></a><br><span class="co"></span>
         <div class="reasons"></div></td>
       <td class="loc"></td>
-      <td><select>${STATUSES.map(s=>`<option ${s===j.status?"selected":""}>${s}</option>`).join("")}</select></td>
+      <td class="st"><select>${STATUSES.map(s=>`<option ${s===j.status?"selected":""}>${s}</option>`).join("")}</select></td>
       <td class="upd"></td>`;
     tr.querySelector("a").textContent = j.title;
     tr.querySelector(".co").textContent = j.company;
@@ -149,6 +188,8 @@ function openAnalysis(j){
   current = j;
   $("dlgTitle").textContent = j.title + " ↗";
   $("dlgTitle").href = j.url;
+  // Page publique de l'offre : l'app LinkedIn ne l'intercepte pas, le texte reste sélectionnable
+  $("dlgText2").href = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/" + j.job_id;
   $("dlgCo").textContent = j.company + " · " + (j.location || "");
   $("dlgText").value = j.description || "";
   $("dlgMsg").textContent = "";
@@ -182,6 +223,13 @@ for (const th of document.querySelectorAll("th[data-key]")){
     render();
   };
 }
+
+// Téléphone : le menu "Trier par" remplace les en-têtes (sens par défaut de chaque colonne)
+$("sortSel").onchange = e => {
+  const key = e.target.value;
+  sort = {key, dir: (key === "score" || key === "llm_score" || key === "status_updated_at") ? -1 : 1};
+  render();
+};
 
 $("min").onchange = load; $("status").onchange = load; load();
 </script>
