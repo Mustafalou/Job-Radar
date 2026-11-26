@@ -6,7 +6,7 @@ par rapport à profile.md.
 
 Variables d'environnement :
     AZURE_OPENAI_ENDPOINT    ex. https://<ressource>.openai.azure.com
-    AZURE_OPENAI_API_KEY     clé de la ressource (secret Azure, jamais dans git)
+    AZURE_OPENAI_API_KEY     facultatif : clé de la ressource. Absente = identité managée (recommandé)
     AZURE_OPENAI_DEPLOYMENT  nom du déploiement du modèle (défaut : gpt-4.1-mini)
     PROFILE_PATH             chemin de profile.md (défaut : profile.md à la racine du projet)
 """
@@ -54,16 +54,27 @@ class LLMNotConfigured(RuntimeError):
 
 @lru_cache(maxsize=1)
 def get_client():
-    """Client OpenAI pointé sur Azure (endpoint v1 de Foundry)."""
+    """Client OpenAI pointé sur Azure (endpoint v1 de Foundry).
+
+    Deux modes :
+    - AZURE_OPENAI_API_KEY défini : authentification par clé (simple, pour le local) ;
+    - sinon : identité managée de l'app (ou `az login` en local) via Microsoft Entra ID.
+      Aucune clé stockée : l'app doit avoir le rôle "Cognitive Services OpenAI User" sur la ressource Foundry.
+    """
     endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    key = os.getenv("AZURE_OPENAI_API_KEY")
-    if not endpoint or not key:
-        raise LLMNotConfigured("AZURE_OPENAI_ENDPOINT et AZURE_OPENAI_API_KEY ne sont pas définis")
+    if not endpoint:
+        raise LLMNotConfigured("AZURE_OPENAI_ENDPOINT n'est pas défini")
     from openai import OpenAI
     # Garde seulement https://<ressource>.<domaine> : l'URL copiée depuis Foundry contient
     # parfois un chemin (/api/projects/..., /openai/...) qui donnerait une erreur 404
     u = urlparse(endpoint.strip())
-    return OpenAI(base_url=f"{u.scheme}://{u.netloc}/openai/v1/", api_key=key)
+    base_url = f"{u.scheme}://{u.netloc}/openai/v1/"
+    key = os.getenv("AZURE_OPENAI_API_KEY")
+    if key:
+        return OpenAI(base_url=base_url, api_key=key)
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+    return OpenAI(base_url=base_url, api_key=token_provider)  # jeton renouvelé automatiquement
 
 
 def load_profile(path: Path = PROFILE_PATH) -> str:

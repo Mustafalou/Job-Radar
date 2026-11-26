@@ -78,3 +78,28 @@ def test_not_configured_returns_503(monkeypatch):
         assert r.status_code == 503
     finally:
         app.dependency_overrides.clear()
+
+
+def test_client_uses_key_when_present(monkeypatch):
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://fdy.services.ai.azure.com/api/projects/p")
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "k")
+    llm_scoring.get_client.cache_clear()
+    c = llm_scoring.get_client()
+    assert str(c.base_url) == "https://fdy.services.ai.azure.com/openai/v1/" and c.api_key == "k"
+    llm_scoring.get_client.cache_clear()
+
+
+def test_client_uses_managed_identity_without_key(monkeypatch):
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://fdy.openai.azure.com/")
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+    import azure.identity
+    import openai
+    provider = lambda: "jeton-entra"
+    monkeypatch.setattr(azure.identity, "DefaultAzureCredential", lambda: "cred")
+    monkeypatch.setattr(azure.identity, "get_bearer_token_provider", lambda cred, scope: provider)
+    seen = {}
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: seen.update(kw) or "client")
+    llm_scoring.get_client.cache_clear()
+    assert llm_scoring.get_client() == "client"
+    assert seen["api_key"] is provider  # jeton Entra ID, aucune clé
+    llm_scoring.get_client.cache_clear()
