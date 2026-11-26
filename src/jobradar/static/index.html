@@ -205,13 +205,14 @@ function showCvLink(j){
 }
 $("dlgCv").onclick = async () => {
   const w = window.open("", "_blank");  // ouvert tout de suite, sinon le navigateur bloque la fenêtre
+  if (w) w.document.write("<p style='font:16px system-ui;margin:40px;color:#555'>Génération du CV en cours (5 à 15 secondes)...</p>");
   $("dlgCv").disabled = true; $("dlgMsg").textContent = "Génération du CV...";
   try {
     const r = await fetch("/jobs/" + current.job_id + "/cv", {method: "POST",
       headers: {"Content-Type": "application/json"}, body: JSON.stringify({description: $("dlgText").value || null})});
     const data = await r.json();
     if (!r.ok){
-      if (w) w.close();
+      if (w) w.document.body.innerHTML = "<p style='font:16px system-ui;margin:40px;color:#b00'>Erreur : voir la fenêtre Job Radar.</p>";
       const d = Array.isArray(data.detail) ? "requête invalide" : data.detail;
       $("dlgMsg").textContent = "Erreur " + r.status + " : " + d; return;
     }

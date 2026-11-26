@@ -17,17 +17,26 @@ from jobradar import llm_scoring
 
 CV_BASE_PATH = Path(os.getenv("CV_BASE_PATH", Path(__file__).resolve().parents[2] / "cv_base.json"))
 
+# Nombre minimum de puces par expérience (complété automatiquement si le LLM en donne moins)
+MIN_BULLETS = {"freelance": 4, "jobradar": 3, "sony": 2, "thesis": 1}
+
 SYSTEM_PROMPT = """Tu prépares un CV adapté à une offre d'emploi, à partir d'une base de faits vrais.
 Règles strictes :
 - Tu ne peux utiliser QUE les identifiants de la base (expériences, puces, catégories, compétences).
 - Choisis les puces les plus utiles pour cette offre et mets les plus pertinentes en premier.
-  Garde le CV sur une page : 3 à 5 puces pour l'expérience principale, 1 à 3 pour les autres.
+  Le CV doit remplir une page : 4 à 5 puces pour l'expérience freelance, 3 à 4 pour Job Radar,
+  2 à 3 pour Sony. N'écarte une puce que si elle est vraiment hors sujet pour l'offre.
 - Ordonne les catégories et les compétences selon l'offre. Une compétence absente de la base n'existe pas.
 - language : "fr" si l'offre est en français, sinon "en".
-- headline : une ligne courte (titre visé + 3 ou 4 compétences de la base, séparées par " · ").
+- headline : une ligne courte. Commence par l'intitulé du poste tel qu'il est écrit dans l'offre
+  (même ordre des mots), puis 3 ou 4 compétences de la base, séparées par " · ".
 - summary : 3 phrases maximum, à la première personne, ton simple et posé, sans exagération,
-  sans tiret long. N'utilise que des faits présents dans la base. Ne prétends jamais avoir livré
-  un projet IA à un client : l'IA a été faite sur ses propres projets (Muskl, Job Radar).
+  sans tiret long. N'utilise que des faits présents dans la base, et cite des choses concrètes :
+  son master, son stage ML chez Sony, son agent LLM avec serveur MCP sur Muskl, Job Radar sur Azure.
+  Garde les noms techniques tels quels (écris "MCP", ne les traduis pas).
+  Ne prétends jamais avoir livré un projet IA à un client : l'IA a été faite sur ses propres projets.
+  Interdit : les phrases creuses du type "motivé pour apprendre", "environnement collaboratif",
+  "innovant", "dynamique", "passionné". Termine plutôt par ce qu'il peut apporter sur ce poste.
 - missing : les compétences demandées par l'offre qui ne sont pas dans la base (pour information)."""
 
 SCHEMA = {
@@ -82,8 +91,13 @@ def clean_plan(plan: dict, base: dict) -> dict:
             continue
         valid = {b["id"] for b in e["bullets"]}
         bullets = [b for b in dict.fromkeys(item["bullets"]) if b in valid]
-        if e["bullets"] and not bullets:
-            bullets = [e["bullets"][0]["id"]]
+        # Si le LLM a été trop avare, on complète avec les puces suivantes de la base
+        # (le CV doit remplir une page, et ces puces sont vraies de toute façon)
+        for b in e["bullets"]:
+            if len(bullets) >= min(MIN_BULLETS.get(e["id"], 1), len(e["bullets"])):
+                break
+            if b["id"] not in bullets:
+                bullets.append(b["id"])
         out_exps.append({"id": e["id"], "bullets": bullets})
         seen.add(e["id"])
     for e in base["experiences"]:  # expériences obligatoires oubliées : ajoutées avec toutes leurs puces

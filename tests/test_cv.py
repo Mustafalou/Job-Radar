@@ -85,3 +85,9 @@ def test_cv_reuses_saved_description(client):
 def test_show_cv_before_generation(client):
     c, _ = client
     assert c.get("/jobs/1/cv").status_code == 404
+
+
+def test_too_few_bullets_are_completed(monkeypatch):
+    monkeypatch.setattr(cv, "MIN_BULLETS", {"main": 2})
+    plan = cv.clean_plan({**PLAN, "experiences": [{"id": "main", "bullets": ["m2"]}]}, BASE)
+    assert plan["experiences"][0]["bullets"] == ["m2", "m1"]  # choix du LLM d'abord, puis complété
