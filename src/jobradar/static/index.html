@@ -91,6 +91,7 @@
   <div class="actions">
     <span class="muted" id="dlgMsg"></span>
     <button id="dlgClose">Fermer</button>
+    <a id="dlgSentCv" target="_blank" rel="noopener" style="display:none;font-size:14px;color:#0a7d32"></a>
     <a id="dlgSeeCv" target="_blank" rel="noopener" style="display:none;font-size:14px;color:#1E4FD8">Voir le CV</a>
     <button id="dlgCv" title="CV construit à partir de ta base de faits vrais, rien n'est inventé">Générer CV</button>
     <button id="dlgGo"><b>Analyser</b></button>
@@ -202,6 +203,9 @@ function openAnalysis(j){
 function showCvLink(j){
   $("dlgSeeCv").style.display = j.cv_plan ? "" : "none";
   $("dlgSeeCv").href = "/jobs/" + j.job_id + "/cv";
+  $("dlgSentCv").style.display = j.cv_sent_at ? "" : "none";
+  $("dlgSentCv").href = "/jobs/" + j.job_id + "/cv/sent";
+  $("dlgSentCv").textContent = j.cv_sent_at ? "CV envoyé (" + fmtDate(j.cv_sent_at).split(" ")[0] + ")" : "";
 }
 $("dlgCv").onclick = async () => {
   const w = window.open("", "_blank");  // ouvert tout de suite, sinon le navigateur bloque la fenêtre

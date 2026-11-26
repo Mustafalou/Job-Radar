@@ -186,30 +186,7 @@ def render_html(plan: dict, base: dict, job: dict) -> str:
                    f'{escape(", ".join(plan["missing"]))}</div>')
     ed = base["education"]
     title = f'CV {c["name"]} - {job.get("company") or ""}'
-    return f"""<!doctype html><html lang="{lg}"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)}</title>
-<style>
-@page{{size:A4;margin:8mm 13mm}}
-body{{font-family:"Lato","Helvetica Neue",Arial,sans-serif;color:#1f2430;font-size:9.2pt;line-height:1.3;margin:0 auto;max-width:190mm;padding:0 12px}}
-h1{{font-size:21pt;color:#14213d;margin:0}}
-.sub{{color:#555;font-size:11pt;margin:2px 0}}
-.contact{{color:#666;font-size:9pt;margin-bottom:8px}}
-h2{{font-size:10.5pt;color:#14213d;text-transform:uppercase;letter-spacing:.3px;border-bottom:1.3px solid #14213d;padding-bottom:2px;margin:9px 0 4px;break-after:avoid}}
-.row{{display:flex;justify-content:space-between;gap:8px;break-after:avoid}}
-.role{{font-weight:700}}.org{{color:#555}}.date{{color:#555;font-size:9.5pt;white-space:nowrap}}
-ul{{margin:2px 0 6px 0;padding-left:16px;break-inside:avoid}}li{{margin:1px 0}}p{{margin:2px 0}}
-.skills li b{{color:#14213d}}
-[contenteditable]:hover{{outline:1px dashed #1E4FD8}}
-.toolbar{{position:sticky;top:0;background:#f3f6ff;border:1px solid #d6e0ff;border-radius:8px;padding:8px 12px;margin:10px 0;
-  font:13px system-ui;display:flex;gap:12px;align-items:center;flex-wrap:wrap}}
-.toolbar button{{font:14px system-ui;padding:6px 12px;cursor:pointer}}
-.note{{font:12px system-ui;color:#8a5a00;background:#fff7e6;border:1px solid #ffe1a6;border-radius:6px;padding:6px 10px;margin:6px 0}}
-@media print{{.no-print{{display:none}} body{{padding:0;max-width:none}} [contenteditable]:hover{{outline:none}}}}
-</style></head><body>
-<div class="toolbar no-print"><button onclick="window.print()"><b>{L["print"]}</b></button><span>{L["edit"]}</span></div>
-{missing}
-<div contenteditable="true" spellcheck="true">
-<h1>{escape(c["name"])}</h1>
+    inner = f"""<h1>{escape(c["name"])}</h1>
 <div class="sub">{escape(plan["headline"])}</div>
 <div class="contact">{" · ".join(escape(x) for x in contact_line)}</div>
 <h2>{L["profile"]}</h2>
@@ -223,5 +200,63 @@ ul{{margin:2px 0 6px 0;padding-left:16px;break-inside:avoid}}li{{margin:1px 0}}p
 <p>{escape(ed["detail"][lg])}</p>
 <h2>{L["lang"]}</h2>
 <p>{escape(base["languages"][lg])}</p>
+"""
+    jid = escape(str(job.get("job_id", "")))
+    toolbar = f"""<button onclick="window.print()"><b>{L["print"]}</b></button>
+<button id="save" title="Garde ce CV, retouches comprises, comme celui envoyé pour cette offre">Enregistrer comme version envoyée</button>
+<label><input type="checkbox" id="applied" checked> passer l'offre en "applied"</label>
+<span id="msg">{L["edit"]}</span>
+<script>
+document.getElementById("save").onclick = async () => {{
+  const r = await fetch("/jobs/{jid}/cv/sent", {{method: "POST", headers: {{"Content-Type": "application/json"}},
+    body: JSON.stringify({{html: document.getElementById("cv").innerHTML,
+                          mark_applied: document.getElementById("applied").checked}})}});
+  const d = await r.json();
+  document.getElementById("msg").textContent = r.ok
+    ? "Version enregistrée. Retrouve-la avec « CV envoyé » dans Job Radar."
+    : "Erreur " + r.status + " : " + d.detail;
+}};
+</script>"""
+    return page(title, lg, inner, toolbar, missing, editable=True)
+
+
+CSS = """@page{size:A4;margin:8mm 13mm}
+body{font-family:"Lato","Helvetica Neue",Arial,sans-serif;color:#1f2430;font-size:9.2pt;line-height:1.3;margin:0 auto;max-width:190mm;padding:0 12px}
+h1{font-size:21pt;color:#14213d;margin:0}
+.sub{color:#555;font-size:11pt;margin:2px 0}
+.contact{color:#666;font-size:9pt;margin-bottom:8px}
+h2{font-size:10.5pt;color:#14213d;text-transform:uppercase;letter-spacing:.3px;border-bottom:1.3px solid #14213d;padding-bottom:2px;margin:9px 0 4px;break-after:avoid}
+.row{display:flex;justify-content:space-between;gap:8px;break-after:avoid}
+.role{font-weight:700}.org{color:#555}.date{color:#555;font-size:9.5pt;white-space:nowrap}
+ul{margin:2px 0 6px 0;padding-left:16px;break-inside:avoid}li{margin:1px 0}p{margin:2px 0}
+.skills li b{color:#14213d}
+[contenteditable]:hover{outline:1px dashed #1E4FD8}
+.toolbar{position:sticky;top:0;background:#f3f6ff;border:1px solid #d6e0ff;border-radius:8px;padding:8px 12px;margin:10px 0;
+  font:13px system-ui;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.toolbar button{font:14px system-ui;padding:6px 12px;cursor:pointer}
+.note{font:12px system-ui;color:#8a5a00;background:#fff7e6;border:1px solid #ffe1a6;border-radius:6px;padding:6px 10px;margin:6px 0}
+@media print{.no-print{display:none} body{padding:0;max-width:none} [contenteditable]:hover{outline:none}}
+"""
+
+
+def page(title: str, lang: str, inner: str, toolbar: str, extra: str = "", editable: bool = False) -> str:
+    """Enveloppe commune : CV généré (modifiable) et version envoyée (figée)."""
+    ce = ' contenteditable="true" spellcheck="true"' if editable else ""
+    return f"""<!doctype html><html lang="{lang}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)}</title>
+<style>{CSS}</style></head><body>
+<div class="toolbar no-print">{toolbar}</div>
+{extra}
+<div id="cv"{ce}>
+{inner}
 </div>
 </body></html>"""
+
+
+def render_sent(job: dict) -> str:
+    """Version envoyée : le HTML enregistré tel quel, non modifiable."""
+    when = (job.get("cv_sent_at") or "")[:10]
+    toolbar = (f'<button onclick="window.print()"><b>Imprimer / PDF</b></button>'
+               f'<span>Version envoyée le {escape(when)}, telle que tu l\'as enregistrée.</span>')
+    title = f'CV envoyé - {job.get("company") or ""}'
+    return page(title, "fr", job["cv_sent_html"], toolbar)

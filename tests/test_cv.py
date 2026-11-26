@@ -91,3 +91,27 @@ def test_too_few_bullets_are_completed(monkeypatch):
     monkeypatch.setattr(cv, "MIN_BULLETS", {"main": 2})
     plan = cv.clean_plan({**PLAN, "experiences": [{"id": "main", "bullets": ["m2"]}]}, BASE)
     assert plan["experiences"][0]["bullets"] == ["m2", "m1"]  # choix du LLM d'abord, puis complété
+
+
+def test_save_and_show_sent_cv(client):
+    c, _ = client
+    c.post("/jobs/1/cv", json={"description": DESCRIPTION})
+    html = "<h1>Test Person</h1><p>Version retouchée à la main pour Sia</p>"
+    r = c.post("/jobs/1/cv/sent", json={"html": html, "mark_applied": True})
+    assert r.status_code == 200
+    assert r.json()["status"] == "applied" and r.json()["cv_sent_at"]
+    assert "cv_sent_html" not in r.json()
+    page = c.get("/jobs/1/cv/sent").text
+    assert "retouchée à la main" in page and 'contenteditable="true"' not in page
+    assert "cv_sent_html" not in c.get("/jobs").json()[0]
+
+
+def test_save_sent_cv_without_status_change(client):
+    c, _ = client
+    r = c.post("/jobs/1/cv/sent", json={"html": "x" * 60, "mark_applied": False})
+    assert r.json()["status"] == "new"
+
+
+def test_no_sent_cv_yet(client):
+    c, _ = client
+    assert c.get("/jobs/1/cv/sent").status_code == 404

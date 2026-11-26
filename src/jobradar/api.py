@@ -5,6 +5,8 @@
 - POST /jobs/{job_id}/analyze        analyse de l'offre par le LLM, à partir de la description collée
 - POST /jobs/{job_id}/cv             CV adapté à l'offre (le LLM choisit dans cv_base.json)
 - GET  /jobs/{job_id}/cv             page du CV, imprimable en PDF
+- POST /jobs/{job_id}/cv/sent        enregistre le CV envoyé (retouches comprises)
+- GET  /jobs/{job_id}/cv/sent        réaffiche le CV envoyé, figé
 - GET  /                     (FAIT)   le petit tableau de bord HTML
 - Doc interactive auto       http://127.0.0.1:8000/docs
 """
@@ -56,6 +58,11 @@ def get_cv_base() -> dict:
         raise HTTPException(status_code=503, detail=f"Base du CV introuvable : {cv.CV_BASE_PATH}")
 
 
+class SentCV(BaseModel):
+    html: str = Field(min_length=50, max_length=300_000, description="Contenu du CV tel qu'envoyé")
+    mark_applied: bool = True
+
+
 class AnalyzeRequest(BaseModel):
     description: str = Field(min_length=50, description="Texte de l'offre copié depuis LinkedIn")
 
@@ -79,7 +86,10 @@ def list_jobs(
         params.append(status)
     query += " ORDER BY score DESC LIMIT ?"
     params.append(limit)
-    return [dict(r) for r in conn.execute(query, params).fetchall()]
+    rows = [dict(r) for r in conn.execute(query, params).fetchall()]
+    for r in rows:
+        r.pop("cv_sent_html", None)  # gros HTML inutile dans la liste : seule cv_sent_at sert
+    return rows
 
 
 @app.patch("/jobs/{job_id}")
@@ -148,3 +158,26 @@ def show_cv(job_id: str, conn: sqlite3.Connection = Depends(get_conn), base: dic
         raise HTTPException(status_code=404, detail="Pas encore de CV pour cette offre")
     plan = cv.clean_plan(json.loads(job["cv_plan"]), base)  # re-validé si la base a changé depuis
     return cv.render_html(plan, base, job)
+
+
+@app.post("/jobs/{job_id}/cv/sent")
+def save_sent_cv(job_id: str, body: SentCV, conn: sqlite3.Connection = Depends(get_conn)):
+    """Fige la version envoyée : elle ne bouge plus, même si cv_base.json ou le plan changent."""
+    _get_job(conn, job_id)
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    conn.execute("UPDATE jobs SET cv_sent_html = ?, cv_sent_at = ? WHERE job_id = ?", (body.html, now, job_id))
+    if body.mark_applied:
+        conn.execute("UPDATE jobs SET status = 'applied', status_updated_at = ? WHERE job_id = ? AND status != 'applied'",
+                     (now, job_id))
+    conn.commit()
+    job = _get_job(conn, job_id)
+    job.pop("cv_sent_html")  # inutile de renvoyer tout le HTML
+    return job
+
+
+@app.get("/jobs/{job_id}/cv/sent", response_class=HTMLResponse)
+def show_sent_cv(job_id: str, conn: sqlite3.Connection = Depends(get_conn)):
+    job = _get_job(conn, job_id)
+    if not job.get("cv_sent_html"):
+        raise HTTPException(status_code=404, detail="Aucun CV envoyé enregistré pour cette offre")
+    return cv.render_sent(job)
