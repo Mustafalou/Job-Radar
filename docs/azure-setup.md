@@ -13,6 +13,7 @@ You choose yours once in step 4, and every following command reuses them.
 1. [What you need](#1-what-you-need)
 2. [Fork the repository and adapt it to your profile](#2-fork-the-repository-and-adapt-it-to-your-profile)
 3. [Gmail access (once, on your PC)](#3-gmail-access-once-on-your-pc)
+   - [Shortcut: create everything with one command (Bicep)](#shortcut-create-everything-with-one-command-bicep)
 4. [Choose your names in Azure Cloud Shell](#4-choose-your-names-in-azure-cloud-shell)
 5. [Create the storage and the environment](#5-create-the-storage-and-the-environment)
 6. [Create the dashboard and the morning routine](#6-create-the-dashboard-and-the-morning-routine)
@@ -90,6 +91,62 @@ python -m jobradar.ingest
 A Google page opens: grant access. The `token.json` file is created.
 This is what goes into Key Vault. `credentials.json` and `token.json` are secrets:
 they are excluded from git, never share them.
+
+## Shortcut: create everything with one command (Bicep)
+
+The file [`infra/main.bicep`](../infra/main.bicep) describes the whole infrastructure (infrastructure as code).
+One command replaces steps 4 to 8: storage, environment, managed identity, Key Vault and secrets,
+Azure AI Foundry and the model, dashboard, morning routine, roles and budget.
+If you take this shortcut, do steps 1 to 3, then this, then steps 9, 10 and 11.
+
+In Cloud Shell (Bash), first upload `token.json` (**Manage files > Upload**), then:
+
+```bash
+GH_REPO=alice/Job-Radar          # your fork
+RG=rg-jobradar                   # resource group
+SUFFIX=ab12                      # 3 to 8 lowercase letters or digits, makes names unique
+DIGEST_TO=alice@gmail.com        # receives the morning digest and budget alerts
+PHONE="+32 4xx xx xx xx"         # shown on the CV (use "" for none)
+
+git clone https://github.com/$GH_REPO.git jr && cd jr
+az group create -n $RG -l francecentral
+
+# Secrets go through a temporary file (never in the shell history)
+jq -n --rawfile t ~/token.json --arg p "$PHONE" '{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": { "gmailTokenJson": { "value": $t }, "cvPhone": { "value": $p } }
+}' > ~/secrets.json
+
+az deployment group create -g $RG -n jobradar -f infra/main.bicep \
+  -p @$HOME/secrets.json \
+  -p suffix=$SUFFIX ghRepo=$GH_REPO digestTo=$DIGEST_TO budgetEmail=$DIGEST_TO \
+     adminObjectId=$(az ad signed-in-user show --query id -o tsv) \
+  --query properties.outputs
+
+rm ~/token.json ~/secrets.json
+```
+
+The command takes 5 to 10 minutes and prints the dashboard address and the names to copy into the
+GitHub variables (step 10). It is safe to run again: Azure only creates what is missing.
+
+Then upload `profile.md` and `cv_base.json` to the share (the pipeline also does it on every push):
+
+```bash
+ST=stjobradar$SUFFIX
+KEY=$(az storage account keys list -n $ST -g $RG --query "[0].value" -o tsv)
+for f in profile.md cv_base.json; do
+  az storage file upload --account-name $ST --account-key "$KEY" --share-name jobradar-data --source $f --path $f
+done
+```
+
+Differences with the step-by-step method: both apps share a managed identity created up front
+(`id-jobradar`), so there is no waiting for role propagation, and the Foundry resource accepts
+no API key at all (Microsoft Entra ID only). To run Job Radar locally with the LLM, give your account
+the "Cognitive Services User" and "Cognitive Services OpenAI User" roles on `fdy-jobradar-<suffix>`.
+
+If the model is not available in your region, add `-p modelVersion=...` with a version listed by
+`az cognitiveservices model list -l francecentral -o table`.
 
 ## 4. Choose your names in Azure Cloud Shell
 
@@ -227,10 +284,12 @@ Then in Cloud Shell:
 FOUNDRY=fdy-jobradar-ab12                                  # the name noted above
 ENDPOINT=https://fdy-jobradar-ab12.services.ai.azure.com   # the endpoint you copied
 
-# Permission to call the model, on the Foundry ACCOUNT (not the project)
-az role assignment create --role "Cognitive Services User" \
-  --scope $(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv) \
-  --assignee-object-id $API_PID --assignee-principal-type ServicePrincipal
+# Permissions to call the model, on the Foundry ACCOUNT (not the project): both roles
+FOUNDRY_ID=$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)
+for r in "Cognitive Services User" "Cognitive Services OpenAI User"; do
+  az role assignment create --role "$r" --scope $FOUNDRY_ID \
+    --assignee-object-id $API_PID --assignee-principal-type ServicePrincipal
+done
 
 az containerapp update -n $API -g $RG --set-env-vars \
   "AZURE_OPENAI_ENDPOINT=$ENDPOINT" "AZURE_OPENAI_DEPLOYMENT=gpt-4.1-mini"
@@ -312,7 +371,7 @@ az containerapp job execution list -n $JOB -g $RG -o table
 | The app does not start, image pull error | private ghcr image | step 2, item 5: make the package public |
 | GitHub: `AADSTS700213 No matching federated identity record` | the "subject" does not match | GitHub sometimes uses a format with IDs (`repo:alice@123/Job-Radar@456:...`). Copy the exact subject shown in the error into the federated credential (Entra ID portal > App registrations > `gh-jobradar-deploy` > Certificates & secrets > Federated credentials). |
 | Key Vault reference refused | permissions not propagated yet | wait 2 to 5 minutes and run the command again |
-| Analyze: 401 error | role set on the Foundry project | the "Cognitive Services User" role must be on the Foundry **account** (step 8) |
+| Analyze: 401 error | role set on the Foundry project | the "Cognitive Services User" and "Cognitive Services OpenAI User" roles must be on the Foundry **account** (step 8), then restart the revision |
 | Analyze: 404 error | wrong deployment name | `AZURE_OPENAI_DEPLOYMENT` must be the exact deployment name |
 | The routine works for a week then fails (`invalid_grant`) | Google app left in test mode | step 3, item 5, then create `token.json` again and update the `gmail-token` secret |
 | `database is locked` | two SQLite writers | keep `maxReplicas: 1` and the `nobrl` option (already in the templates) |

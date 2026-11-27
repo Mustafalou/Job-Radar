@@ -13,6 +13,7 @@ Tu choisis les tiens une seule fois à l'étape 4, et toutes les commandes suiva
 1. [Ce qu'il te faut](#1-ce-quil-te-faut)
 2. [Copier le dépôt et l'adapter à ton profil](#2-copier-le-dépôt-et-ladapter-à-ton-profil)
 3. [Accès Gmail (une seule fois, sur ton PC)](#3-accès-gmail-une-seule-fois-sur-ton-pc)
+   - [Raccourci : tout créer en une commande (Bicep)](#raccourci--tout-créer-en-une-commande-bicep)
 4. [Choisir tes noms dans Azure Cloud Shell](#4-choisir-tes-noms-dans-azure-cloud-shell)
 5. [Créer le stockage et l'environnement](#5-créer-le-stockage-et-lenvironnement)
 6. [Créer le tableau de bord et la routine du matin](#6-créer-le-tableau-de-bord-et-la-routine-du-matin)
@@ -90,6 +91,62 @@ python -m jobradar.ingest
 Une page Google s'ouvre : autorise l'accès. Le fichier `token.json` est créé.
 C'est lui qu'on mettra dans Key Vault. `credentials.json` et `token.json` sont des secrets :
 ils sont exclus de git, ne les envoie jamais.
+
+## Raccourci : tout créer en une commande (Bicep)
+
+Le fichier [`infra/main.bicep`](../infra/main.bicep) décrit toute l'infrastructure (infrastructure as code).
+Une seule commande remplace les étapes 4 à 8 : stockage, environnement, identité managée, Key Vault
+et secrets, Azure AI Foundry et le modèle, tableau de bord, routine du matin, rôles et budget.
+Si tu choisis ce raccourci, fais les étapes 1 à 3, puis ceci, puis les étapes 9, 10 et 11.
+
+Dans Cloud Shell (Bash), téléverse d'abord `token.json` (**Gérer les fichiers > Charger**), puis :
+
+```bash
+GH_REPO=alice/Job-Radar          # ton fork
+RG=rg-jobradar                   # groupe de ressources
+SUFFIX=ab12                      # 3 à 8 minuscules ou chiffres, rend les noms uniques
+DIGEST_TO=alice@gmail.com        # reçoit le résumé du matin et les alertes de budget
+PHONE="+32 4xx xx xx xx"         # affiché sur le CV (mets "" pour aucun)
+
+git clone https://github.com/$GH_REPO.git jr && cd jr
+az group create -n $RG -l francecentral
+
+# Les secrets passent par un fichier temporaire (jamais dans l'historique du terminal)
+jq -n --rawfile t ~/token.json --arg p "$PHONE" '{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": { "gmailTokenJson": { "value": $t }, "cvPhone": { "value": $p } }
+}' > ~/secrets.json
+
+az deployment group create -g $RG -n jobradar -f infra/main.bicep \
+  -p @$HOME/secrets.json \
+  -p suffix=$SUFFIX ghRepo=$GH_REPO digestTo=$DIGEST_TO budgetEmail=$DIGEST_TO \
+     adminObjectId=$(az ad signed-in-user show --query id -o tsv) \
+  --query properties.outputs
+
+rm ~/token.json ~/secrets.json
+```
+
+La commande prend 5 à 10 minutes et affiche à la fin l'adresse du tableau de bord et les noms à recopier
+dans les variables GitHub (étape 10). Elle peut être relancée sans risque : Azure ne recrée que ce qui manque.
+
+Envoie ensuite `profile.md` et `cv_base.json` sur le partage (le pipeline le fera aussi à chaque push) :
+
+```bash
+ST=stjobradar$SUFFIX
+KEY=$(az storage account keys list -n $ST -g $RG --query "[0].value" -o tsv)
+for f in profile.md cv_base.json; do
+  az storage file upload --account-name $ST --account-key "$KEY" --share-name jobradar-data --source $f --path $f
+done
+```
+
+Différences avec la méthode pas à pas : les deux apps partagent une identité managée créée à l'avance
+(`id-jobradar`), ce qui évite d'attendre la propagation des rôles, et la ressource Foundry n'accepte
+aucune clé d'API (uniquement Microsoft Entra ID). Pour lancer Job Radar en local avec le LLM,
+donne à ton compte les rôles "Cognitive Services User" et "Cognitive Services OpenAI User" sur `fdy-jobradar-<suffixe>`.
+
+Si le modèle n'est pas disponible dans ta région, ajoute `-p modelVersion=...` avec une version listée
+par `az cognitiveservices model list -l francecentral -o table`.
 
 ## 4. Choisir tes noms dans Azure Cloud Shell
 
@@ -227,10 +284,12 @@ Puis dans Cloud Shell :
 FOUNDRY=fdy-jobradar-ab12                                  # le nom noté ci-dessus
 ENDPOINT=https://fdy-jobradar-ab12.services.ai.azure.com   # le point de terminaison copié
 
-# Droit d'appeler le modèle, sur le COMPTE Foundry (pas sur le projet)
-az role assignment create --role "Cognitive Services User" \
-  --scope $(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv) \
-  --assignee-object-id $API_PID --assignee-principal-type ServicePrincipal
+# Droits d'appeler le modèle, sur le COMPTE Foundry (pas sur le projet) : les deux rôles
+FOUNDRY_ID=$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)
+for r in "Cognitive Services User" "Cognitive Services OpenAI User"; do
+  az role assignment create --role "$r" --scope $FOUNDRY_ID \
+    --assignee-object-id $API_PID --assignee-principal-type ServicePrincipal
+done
 
 az containerapp update -n $API -g $RG --set-env-vars \
   "AZURE_OPENAI_ENDPOINT=$ENDPOINT" "AZURE_OPENAI_DEPLOYMENT=gpt-4.1-mini"
@@ -312,7 +371,7 @@ az containerapp job execution list -n $JOB -g $RG -o table
 | L'app ne démarre pas, erreur de téléchargement d'image | image ghcr privée | étape 2, point 5 : rendre le package public |
 | GitHub : `AADSTS700213 No matching federated identity record` | le "subject" ne correspond pas | GitHub utilise parfois un format avec identifiants (`repo:alice@123/Job-Radar@456:...`). Copie le subject exact affiché dans l'erreur et mets-le dans l'identité fédérée (portail Entra ID > Inscriptions d'applications > `gh-jobradar-deploy` > Certificats et secrets > Informations d'identification fédérées). |
 | Secret Key Vault refusé à la création de la référence | droits pas encore propagés | attends 2 à 5 minutes et relance la commande |
-| Analyser : erreur 401 | rôle mis sur le projet Foundry | le rôle "Cognitive Services User" doit être sur le **compte** Foundry (étape 8) |
+| Analyser : erreur 401 | rôle mis sur le projet Foundry | les rôles "Cognitive Services User" et "Cognitive Services OpenAI User" doivent être sur le **compte** Foundry (étape 8), puis redémarrer la révision |
 | Analyser : erreur 404 | mauvais nom de déploiement | `AZURE_OPENAI_DEPLOYMENT` doit être le nom exact du déploiement |
 | La routine marche une semaine puis échoue (`invalid_grant`) | application Google restée en mode test | étape 3, point 5, puis refais `token.json` et mets à jour le secret `gmail-token` |
 | `database is locked` | deux écrivains SQLite | garder `maxReplicas: 1` et l'option `nobrl` (déjà dans les modèles) |

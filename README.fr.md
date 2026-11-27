@@ -64,7 +64,7 @@ flowchart LR
 | Analyse détaillée | Azure AI Foundry (`gpt-4.1-mini`), SDK `openai`, sorties structurées JSON |
 | API et tableau de bord | FastAPI, Uvicorn |
 | Tests | pytest |
-| Déploiement | Docker, GitHub Actions, Azure Container Apps, Azure Files, Azure Key Vault, identités managées, Microsoft Entra ID |
+| Déploiement | Bicep, Docker, GitHub Actions, Azure Container Apps, Azure Files, Azure Key Vault, identités managées, Microsoft Entra ID |
 
 ## Structure du projet
 
@@ -86,6 +86,7 @@ profile.md            mon profil de recherche, lu par le LLM
 cv_base.json          base de faits du CV (hors image, envoyée sur Azure Files par le pipeline)
 docs/                 guide d'installation sur Azure (EN et FR)
 deploy/               modèles Container Apps
+infra/main.bicep      toute l'infrastructure Azure en code (Bicep)
 ```
 
 ## Installer ta propre version
@@ -93,6 +94,7 @@ deploy/               modèles Container Apps
 Le guide [docs/installation-azure.md](docs/installation-azure.md) explique pas à pas comment déployer
 Job Radar sur ton propre compte Azure, avec tes propres noms de ressources : accès Gmail, stockage,
 Container Apps, Key Vault, Azure AI Foundry, connexion Microsoft et déploiement automatique depuis GitHub.
+Toute l'infrastructure peut aussi être créée en une commande à partir de `infra/main.bicep`.
 Les noms utilisés dans ce dépôt (`rg-jobradar`, `stjobradarmay`...) sont les miens : le pipeline lit
 les tiens dans les variables du dépôt GitHub.
 
