@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Nom de l'image (ghcr.io/<propriétaire>/<dépôt>, en minuscules)
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -24,34 +27,43 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/mustafalou/job-radar:latest
-            ghcr.io/mustafalou/job-radar:${{ github.sha }}
+            ${{ steps.img.outputs.name }}:latest
+            ${{ steps.img.outputs.name }}:${{ github.sha }}
+
   deploy:
     needs: build                         # attend que l'image soit publiée
-    if: github.ref == 'refs/heads/main'  # seule la branche main est autorisée par Azure
+    # Seulement sur main, et seulement si les variables Azure du dépôt sont remplies
+    # (un fork qui n'a pas encore Azure construit l'image sans échouer ici).
+    if: github.ref == 'refs/heads/main' && vars.AZURE_RESOURCE_GROUP != ''
     runs-on: ubuntu-latest
     permissions:
       id-token: write                    # permet à GitHub de prouver son identité à Azure (OIDC)
       contents: read
+    env:
+      RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+      API: ${{ vars.AZURE_API_APP }}
+      JOB: ${{ vars.AZURE_JOB }}
+      STORAGE: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+      SHARE: ${{ vars.AZURE_FILE_SHARE }}
     steps:
-      - uses: actions/checkout@v4          # pour récupérer profile.md
+      - uses: actions/checkout@v4          # pour récupérer profile.md et cv_base.json
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deployer la nouvelle image
+      - name: Déployer la nouvelle image
         run: |
-          IMAGE=ghcr.io/mustafalou/job-radar:${{ github.sha }}
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
           az extension add --name containerapp --upgrade --only-show-errors
-          az containerapp update -n ca-jobradar-api -g rg-jobradar --image $IMAGE
-          az containerapp job update -n caj-jobradar-daily -g rg-jobradar --image $IMAGE
+          az containerapp update -n "$API" -g "$RG" --image "$IMAGE"
+          az containerapp job update -n "$JOB" -g "$RG" --image "$IMAGE"
 
       - name: Envoyer profile.md et cv_base.json sur le partage Azure Files
         run: |
-          KEY=$(az storage account keys list -n stjobradarmay -g rg-jobradar --query "[0].value" -o tsv)
+          KEY=$(az storage account keys list -n "$STORAGE" -g "$RG" --query "[0].value" -o tsv)
           for f in profile.md cv_base.json; do
-            az storage file upload --account-name stjobradarmay --account-key "$KEY" \
-              --share-name jobradar-data --source "$f" --path "$f" --only-show-errors
+            az storage file upload --account-name "$STORAGE" --account-key "$KEY" \
+              --share-name "$SHARE" --source "$f" --path "$f" --only-show-errors
           done

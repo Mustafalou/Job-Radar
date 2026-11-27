@@ -1,0 +1,31 @@
+# Modèle du Container Apps Job de la routine du matin (ingestion, scoring, email).
+# Les valeurs __EN_MAJUSCULES__ sont remplacées par sed : voir docs/installation-azure.md, étape 6.
+location: __LOCATION__
+identity:
+  type: SystemAssigned      # identité managée : lit le token Gmail dans Key Vault
+properties:
+  environmentId: __ENV_ID__
+  configuration:
+    triggerType: Schedule
+    replicaTimeout: 1800    # 30 min max par exécution
+    replicaRetryLimit: 1
+    scheduleTriggerConfig:
+      cronExpression: "0 6 * * *"   # tous les jours à 6 h UTC (7 h ou 8 h en Belgique)
+      parallelism: 1
+      replicaCompletionCount: 1
+  template:
+    containers:
+      - name: daily
+        image: __IMAGE__
+        command: ["python", "-m", "jobradar.daily"]
+        resources:
+          cpu: 1            # le modèle d'embeddings a besoin de mémoire
+          memory: 2Gi
+        volumeMounts:
+          - volumeName: data
+            mountPath: /data
+    volumes:
+      - name: data
+        storageType: AzureFile
+        storageName: jobradardata
+        mountOptions: "nobrl,dir_mode=0777,file_mode=0777"

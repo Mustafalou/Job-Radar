@@ -1,8 +1,10 @@
-# Configuration de l'app Container Apps "ca-jobradar-api" (tableau de bord FastAPI)
-# Création : az containerapp create -n ca-jobradar-api -g rg-jobradar --yaml deploy/containerapp-api.yaml
-location: francecentral
+# Modèle de l'app Container Apps du tableau de bord (FastAPI).
+# Les valeurs __EN_MAJUSCULES__ sont remplacées par sed : voir docs/installation-azure.md, étape 6.
+location: __LOCATION__
+identity:
+  type: SystemAssigned      # identité managée : lit Key Vault et appelle Foundry sans clé
 properties:
-  managedEnvironmentId: /subscriptions/215cfdc3-8e38-446f-9e5d-993a81b016ff/resourceGroups/rg-jobradar/providers/Microsoft.App/managedEnvironments/cae-jobradar
+  managedEnvironmentId: __ENV_ID__
   configuration:
     activeRevisionsMode: Single
     ingress:
@@ -12,7 +14,7 @@ properties:
   template:
     containers:
       - name: api
-        image: ghcr.io/mustafalou/job-radar:latest
+        image: __IMAGE__
         resources:
           cpu: 0.25         # l'API n'utilise pas le modèle d'embeddings : très léger
           memory: 0.5Gi
