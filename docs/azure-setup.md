@@ -94,6 +94,8 @@ they are excluded from git, never share them.
 
 ## Shortcut: create everything with one command (Bicep)
 
+> Status: the file passes Azure's pre-deployment validation but has not been deployed end to end yet. If you hit an error, please open a GitHub issue; the step-by-step method below is tested.
+
 The file [`infra/main.bicep`](../infra/main.bicep) describes the whole infrastructure (infrastructure as code).
 One command replaces steps 4 to 8: storage, environment, managed identity, Key Vault and secrets,
 Azure AI Foundry and the model, dashboard, morning routine, roles and budget.
@@ -144,6 +146,8 @@ Differences with the step-by-step method: both apps share a managed identity cre
 (`id-jobradar`), so there is no waiting for role propagation, and the Foundry resource accepts
 no API key at all (Microsoft Entra ID only). To run Job Radar locally with the LLM, give your account
 the "Cognitive Services User" and "Cognitive Services OpenAI User" roles on `fdy-jobradar-<suffix>`.
+
+If your subscription already has a Container Apps environment and refuses a second one (common on a free trial or just after upgrading), reuse it: add `-p existingEnvironmentName=<name> existingEnvironmentResourceGroup=<group>`, in the same region as that environment. The apps and storage stay in your new group, and the share is mounted under its own name (`jobradar<suffix>`).
 
 If the model is not available in your region, add `-p modelVersion=...` with a version listed by
 `az cognitiveservices model list -l francecentral -o table`.
@@ -376,3 +380,4 @@ az containerapp job execution list -n $JOB -g $RG -o table
 | The routine works for a week then fails (`invalid_grant`) | Google app left in test mode | step 3, item 5, then create `token.json` again and update the `gmail-token` secret |
 | `database is locked` | two SQLite writers | keep `maxReplicas: 1` and the `nobrl` option (already in the templates) |
 | No offers found | Gmail query too strict | check `GMAIL_QUERY` by testing it in the Gmail search bar |
+| `MaxNumberOfGlobalEnvironmentsInSubExceeded` or `...Regional...` | the subscription (free trial, or upgraded from one) is limited to one Container Apps environment | reuse the existing environment: `-p existingEnvironmentName=... existingEnvironmentResourceGroup=...` (Bicep), or request a quota increase (Help + support) |

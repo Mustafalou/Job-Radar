@@ -53,6 +53,12 @@ param modelCapacity int = 10
 
 param location string = resourceGroup().location
 
+@description('Facultatif : nom d\'un environnement Container Apps existant à réutiliser (utile si ton abonnement est limité à un seul environnement). Vide = en créer un.')
+param existingEnvironmentName string = ''
+
+@description('Groupe de ressources de l\'environnement existant (même région que location).')
+param existingEnvironmentResourceGroup string = resourceGroup().name
+
 @description('Ne pas modifier : premier jour du mois courant, pour le budget.')
 param budgetStartDate string = utcNow('yyyy-MM-01')
 
@@ -66,6 +72,10 @@ var foundryName = 'fdy-jobradar-${suffix}'
 var apiName = 'ca-jobradar-api'
 var jobName = 'caj-jobradar-daily'
 var hasPhone = !empty(cvPhone)
+var useExistingEnv = !empty(existingEnvironmentName)
+var envName = useExistingEnv ? existingEnvironmentName : 'cae-jobradar'
+var envResourceGroup = useExistingEnv ? existingEnvironmentResourceGroup : resourceGroup().name
+var envStorageName = 'jobradar${suffix}' // nom propre à cette installation : ne gêne pas une autre installation dans le même environnement
 
 // Rôles intégrés Azure (identifiants fixes)
 var roles = {
@@ -77,7 +87,7 @@ var roles = {
 
 // ---------- Journaux ----------
 
-resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = if (!useExistingEnv) {
   name: 'log-jobradar'
   location: location
   properties: {
@@ -113,8 +123,8 @@ resource share 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01
 
 // ---------- Environnement Container Apps ----------
 
-resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
-  name: 'cae-jobradar'
+resource env 'Microsoft.App/managedEnvironments@2024-03-01' = if (!useExistingEnv) {
+  name: envName
   location: location
   properties: {
     appLogsConfiguration: {
@@ -127,17 +137,26 @@ resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
-resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
-  parent: env
-  name: 'jobradardata'
-  properties: {
-    azureFile: {
-      accountName: storage.name
-      accountKey: storage.listKeys().keys[0].value
-      shareName: share.name
-      accessMode: 'ReadWrite'
-    }
+resource existingEnv 'Microsoft.App/managedEnvironments@2024-03-01' existing = if (useExistingEnv) {
+  name: envName
+  scope: resourceGroup(envResourceGroup)
+}
+
+var environmentId = useExistingEnv ? existingEnv.id : env.id
+
+module envStorage 'env-storage.bicep' = {
+  name: 'env-storage-${suffix}'
+  scope: resourceGroup(envResourceGroup)
+  params: {
+    environmentName: envName
+    name: envStorageName
+    storageAccountName: storage.name
+    storageAccountKey: storage.listKeys().keys[0].value
+    shareName: share.name
   }
+  dependsOn: [
+    env
+  ]
 }
 
 // ---------- Identité managée commune aux deux apps ----------
@@ -242,7 +261,7 @@ var volumes = [
   {
     name: 'data'
     storageType: 'AzureFile'
-    storageName: envStorage.name
+    storageName: envStorage.outputs.name
     mountOptions: 'nobrl,dir_mode=0777,file_mode=0777' // nobrl : évite "database is locked" avec SQLite
   }
 ]
@@ -263,7 +282,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
     userAssignedIdentities: { '${identity.id}': {} }
   }
   properties: {
-    environmentId: env.id
+    environmentId: environmentId
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: {
@@ -322,7 +341,7 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
     userAssignedIdentities: { '${identity.id}': {} }
   }
   properties: {
-    environmentId: env.id
+    environmentId: environmentId
     configuration: {
       triggerType: 'Schedule'
       replicaTimeout: 1800

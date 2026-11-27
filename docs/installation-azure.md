@@ -94,6 +94,8 @@ ils sont exclus de git, ne les envoie jamais.
 
 ## Raccourci : tout créer en une commande (Bicep)
 
+> Statut : le fichier est validé par Azure (vérification avant déploiement), mais n'a pas encore été déployé de bout en bout. Si une erreur apparaît, ouvre une issue sur GitHub ; la méthode pas à pas ci-dessous, elle, est testée.
+
 Le fichier [`infra/main.bicep`](../infra/main.bicep) décrit toute l'infrastructure (infrastructure as code).
 Une seule commande remplace les étapes 4 à 8 : stockage, environnement, identité managée, Key Vault
 et secrets, Azure AI Foundry et le modèle, tableau de bord, routine du matin, rôles et budget.
@@ -144,6 +146,8 @@ Différences avec la méthode pas à pas : les deux apps partagent une identité
 (`id-jobradar`), ce qui évite d'attendre la propagation des rôles, et la ressource Foundry n'accepte
 aucune clé d'API (uniquement Microsoft Entra ID). Pour lancer Job Radar en local avec le LLM,
 donne à ton compte les rôles "Cognitive Services User" et "Cognitive Services OpenAI User" sur `fdy-jobradar-<suffixe>`.
+
+Si ton abonnement a déjà un environnement Container Apps et refuse d'en créer un second (fréquent en essai gratuit ou juste après), réutilise-le : ajoute `-p existingEnvironmentName=<nom> existingEnvironmentResourceGroup=<groupe>`, dans la même région que cet environnement. Les apps et le stockage restent dans ton nouveau groupe, et le partage est branché sous un nom propre (`jobradar<suffixe>`).
 
 Si le modèle n'est pas disponible dans ta région, ajoute `-p modelVersion=...` avec une version listée
 par `az cognitiveservices model list -l francecentral -o table`.
@@ -376,3 +380,4 @@ az containerapp job execution list -n $JOB -g $RG -o table
 | La routine marche une semaine puis échoue (`invalid_grant`) | application Google restée en mode test | étape 3, point 5, puis refais `token.json` et mets à jour le secret `gmail-token` |
 | `database is locked` | deux écrivains SQLite | garder `maxReplicas: 1` et l'option `nobrl` (déjà dans les modèles) |
 | Aucune offre trouvée | requête Gmail trop stricte | vérifie `GMAIL_QUERY` en la testant dans la barre de recherche Gmail |
+| `MaxNumberOfGlobalEnvironmentsInSubExceeded` ou `...Regional...` | l'abonnement (essai gratuit, ou passé de l'essai au paiement) est limité à un environnement Container Apps | réutilise l'environnement existant : `-p existingEnvironmentName=... existingEnvironmentResourceGroup=...` (Bicep), ou demande une hausse de quota (Aide + support) |
